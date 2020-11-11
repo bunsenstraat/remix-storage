@@ -76,9 +76,6 @@ export class SpacePlugin extends PluginClient {
       if (this.requireLoaded()) return false;
 
       if (this.step === Steps.connect) {
-        console.log("connect");
-        //this.box = await Box.openBox(this.address, this.ethereumProvider);
-        //console.log(this.box);
         const [address] = await this.ethereumProvider.enable();
         this.address = getAddress(address);
         this.step = Steps.login;
