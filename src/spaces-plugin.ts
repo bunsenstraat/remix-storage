@@ -19,6 +19,7 @@ export class SpacePlugin extends PluginClient {
   constructor() {
     super();
     this.onload().then(()=>{
+      console.log("client loaded");
       this.mainBtn.addEventListener('click', () => this.connector());
     });
 
