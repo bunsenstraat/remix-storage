@@ -13,15 +13,15 @@
   "license": "ISC",
   "devDependencies": {
     "node-static": "^0.7.11",
-    "surge": "^0.21.3",
-    "ts-loader": "^6.0.4",
-    "typescript": "^3.5.3",
-    "webpack": "^4.38.0",
-    "webpack-cli": "^3.3.6"
+    "surge": "^0.21.7",
+    "ts-loader": "^6.2.2",
+    "typescript": "^3.9.7",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12"
   },
   "dependencies": {
-    "3box": "^1.10.3",
-    "@ethersproject/address": "^5.0.0-beta.127",
-    "@remixproject/plugin": "^0.1.9"
+    "3box": "^1.22.2",
+    "@ethersproject/address": "^5.0.5",
+    "@remixproject/plugin": "^0.1.18"
   }
 }

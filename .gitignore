@@ -1,2 +1,8 @@
 node_modules/
 dist/
+server.crt
+server.key
+server.key.org
+server.csr
+server.pem
+simple-python-https-server.py
