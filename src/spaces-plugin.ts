@@ -1,6 +1,8 @@
+import { createClient } from '@remixproject/plugin-webview';
 import { PluginClient } from '@remixproject/plugin';
-import { default as Box} from '3box';
+import { default as Box } from '3box';
 import { getAddress } from '@ethersproject/address';
+import $ from 'jquery';
 
 const enum Steps { connect, login, logout, noMetaMask };
 
@@ -11,18 +13,19 @@ export class SpacePlugin extends PluginClient {
   enable: boolean;
   ethereumProvider: any; // TODO check if MetaMask has types
   address: string;
-
+  client: any
   // 3Box doesn't support TypeScript :(
   box: any;
   spaces: Record<string, any>;
 
   constructor() {
+    console.clear();
     super();
-    this.onload().then(()=>{
-      console.log("client loaded");
-      this.mainBtn.addEventListener('click', () => this.connector());
-    });
-
+    this.client = createClient(this)
+    this.client.onload().then(async ()=>{
+      console.log("client loaded",this)
+      await this.getFiles()
+    })
     this.enable = false;
     this.step = Steps.connect;
     this.mainBtn = document.querySelector<HTMLButtonElement>('#main-btn')!;
@@ -50,6 +53,11 @@ export class SpacePlugin extends PluginClient {
     }
   }
 
+  private async getFiles(){
+    const files =  await this.client.call('fileManager', 'readdir', 'browser');
+    console.log(files)
+    $("#fileList").html("files loaded");
+  }
   /** 
   * this function handle the ui and the plugin life cycle,
   * it is called every time the user click on the main button
