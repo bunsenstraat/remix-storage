@@ -28,7 +28,6 @@ const ipfsurl = "https://ipfs.io/ipfs/";
 
 export class WorkSpacePlugin extends PluginClient {
 
-
   constructor() {
 
     super();
@@ -64,6 +63,9 @@ export class WorkSpacePlugin extends PluginClient {
     })
     $(document).on("click", ".viewfile", async (...args) => {
       await this.viewFile(args)
+    })
+    $(document).on("click", ".diff", async (...args) => {
+      await this.diffFile(args)
     })
     $(document).on("click", ".addgit", async (...args) => {
       console.log($(args[0].currentTarget).data("file"));
@@ -143,6 +145,19 @@ export class WorkSpacePlugin extends PluginClient {
     $('#fileviewer').modal('show')
   }
 
+  async diffFile(args){
+    let fs = this.fs
+    let filename = path.basename($(args[0].currentTarget).data("file"))
+    let commitOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' })
+    console.log(commitOid)
+    let { blob } = await git.readBlob({
+      fs,
+      dir: '/',
+      oid: commitOid,
+      filepath: filename
+    })
+    console.log(Buffer.from(blob).toString('utf8'))
+  }
 
   async getDirectory(dir) {
 

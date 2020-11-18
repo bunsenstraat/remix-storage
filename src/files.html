@@ -10,10 +10,13 @@
     </div>
     <div class="col">
         <div class="btn btn-sm btn-secondary viewfile" data-file="{{name}}">
-            view
+            view/edit
         </div>
         <div class="btn btn-sm btn-primary addgit" data-file="{{name}}">
             git add
+        </div>
+        <div class="btn btn-sm btn-primary diff" data-file="{{name}}">
+            git diff
         </div>
         {{#status}}
         <span class="badge badge-secondary">{{.}}</span>
