@@ -1,10 +1,26 @@
-import { createClient } from '@remixproject/plugin-webview';
-import { PluginClient } from '@remixproject/plugin';
-import { default as Box } from '3box';
-import { getAddress } from '@ethersproject/address';
+import {
+  createClient
+} from '@remixproject/plugin-webview';
+import {
+  PluginClient
+} from '@remixproject/plugin';
+import {
+  default as Box
+} from '3box';
+import {
+  getAddress
+} from '@ethersproject/address';
 import $ from 'jquery';
 
-const enum Steps { connect, login, logout, noMetaMask };
+//import * as fs from 'fs';
+
+const enum Steps {
+  connect,
+  login,
+  logout,
+  noMetaMask
+};
+
 
 export class SpacePlugin extends PluginClient {
 
@@ -16,19 +32,26 @@ export class SpacePlugin extends PluginClient {
   client: any
   // 3Box doesn't support TypeScript :(
   box: any;
-  spaces: Record<string, any>;
+  spaces: Record < string,
+  any > ;
 
   constructor() {
-    console.clear();
+    
+   // console.clear();
+    
     super();
+
+    
     this.client = createClient(this)
-    this.client.onload().then(async ()=>{
-      console.log("client loaded",this)
-      await this.getFiles()
+    this.client.onload().then(async () => {
+      console.log("client loaded", this)
+      $("#main-btn").click(async () => {
+        await this.connector()
+      })
     })
     this.enable = false;
     this.step = Steps.connect;
-    this.mainBtn = document.querySelector<HTMLButtonElement>('#main-btn')!;
+    this.mainBtn = document.querySelector < HTMLButtonElement > ('#main-btn') !;
     this.ethereumProvider = window['ethereum'];
     this.spaces = {};
     this.methods = [
@@ -53,25 +76,40 @@ export class SpacePlugin extends PluginClient {
     }
   }
 
-  private async getFiles(){
-    const files =  await this.client.call('fileManager', 'readdir', 'browser');
-    console.log(files)
-    $("#fileList").html("files loaded");
+  public async ipfs(){
+    // const defaultHost = 'ipfs.komputing.org' // ethdev berlin ipfs node
+    // const defaultPort = 443
+    // const defaultProtocol = 'https'
+    // let ipfs = IpfsHttpClient.create(
+     
+    // )
+
+    // let i = await ipfs.add({
+    //   path:"/tuts/yann.txt",
+    //   content:"genius",
+    //   mode:"string"
+    // })
+
+    // console.log(i);
   }
+
   /** 
-  * this function handle the ui and the plugin life cycle,
-  * it is called every time the user click on the main button
-  */
+   * this function handle the ui and the plugin life cycle,
+   * it is called every time the user click on the main button
+   */
   private async connector() {
     this.requireLoaded();
 
     switch (this.step) {
       case Steps.connect:
-      case Steps.login: this.login();
+      case Steps.login:
+        this.login();
         break;
-      case Steps.logout: this.logout();
+      case Steps.logout:
+        this.logout();
         break;
-      default: console.warn('Please Download MetaMask to continue'); // TODO better error
+      default:
+        console.warn('Please Download MetaMask to continue'); // TODO better error
         break;
     }
   }
@@ -80,34 +118,51 @@ export class SpacePlugin extends PluginClient {
   //        FUNCTIONS EXPOSED TO CALL
   //-----------------------------------------
 
-  public async login(){
+  public async login() {
     try {
       if (this.requireLoaded()) return false;
 
       if (this.step === Steps.connect) {
         const [address] = await this.ethereumProvider.enable();
+
         this.address = getAddress(address);
-        this.step = Steps.login;
+        this.step = Steps.connect;
         this.mainBtn.innerHTML = 'Login to 3Box';
         this.emit('enabled');
       }
-  
+
       if (this.step === Steps.login) {
-        this.box = await Box.openBox(this.address, this.ethereumProvider);
-        this.step = Steps.logout;
-        this.enable = true;
-        this.mainBtn.innerHTML = 'Logout';
-        this.emit('loggedIn');
+        return true;
+        console.log(this.address);
+        try {
+          //this.box = await Box.create(this.ethereumProvider);
+          this.box = await Box.openBox(this.address, this.ethereumProvider);
+          this.step = Steps.logout;
+          this.enable = true;
+          this.mainBtn.innerHTML = 'Logout';
+          this.emit('loggedIn');
+          await this.openSpace();
+          this.setSpacePublicValue("yann","genius")
+          console.log(this.getSpacePublicValue("yann").then((x)=>{console.log(x)}));
+          
+        } catch (err) {
+          console.log(err)
+          throw err;
+        }
+
+
+
         return true;
       }
-  
+
       return false;
     } catch (err) {
       throw err;
     }
   }
-  
-  private logout(){
+
+  private logout() {
+    console.log("logout");
     delete this.address;
     delete this.box;
     this.spaces = {};
@@ -119,7 +174,11 @@ export class SpacePlugin extends PluginClient {
   }
 
   public getSpaceName() {
-    return `remix-${this.currentRequest.from}`;
+    if (typeof this.currentRequest != "undefined") {
+      return `remix-${this.currentRequest.from}`;
+    } else {
+      return `remix-workspace`;
+    }
   }
 
   public getUserAddress() {
@@ -143,8 +202,9 @@ export class SpacePlugin extends PluginClient {
       const space = await this.box.openSpace(this.getSpaceName());
       this.spaces[this.getSpaceName()] = space;
       this.emit('spaceOpened', this.getSpaceName());
+      console.log(this.spaces)
       return true;
-    } catch(err) {
+    } catch (err) {
       console.error('An error happened during "openSpace()" :', err);
       return false;
     }

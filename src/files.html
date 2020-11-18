@@ -1,0 +1,24 @@
+<hr>
+<div class="container-fluid">
+{{#files}}
+<div class="row p-1">
+    <div class="col-1">
+        {{directory}}
+    </div>
+    <div class="col-1">
+        {{filename}}
+    </div>
+    <div class="col">
+        <div class="btn btn-sm btn-secondary viewfile" data-file="{{name}}">
+            view
+        </div>
+        <div class="btn btn-sm btn-primary addgit" data-file="{{name}}">
+            git add
+        </div>
+        {{#status}}
+        <span class="badge badge-secondary">{{.}}</span>
+        {{/status}}
+    </div>
+</div>
+{{/files}}
+</div>

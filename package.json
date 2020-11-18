@@ -7,23 +7,33 @@
     "build": "npx webpack --config webpack.config.js",
     "dev": "static .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "npm run build && surge . remix-3box.surge.sh"
+    "deploy": "npm run build && surge . remix-3box.surge.sh",
+    "watch": "webpack --watch",
+    "start": "webpack-cli serve --open"
   },
   "author": "@pldespaigne",
   "license": "ISC",
   "devDependencies": {
+    "@webpack-cli/serve": "^1.1.0",
     "node-static": "^0.7.11",
     "surge": "^0.21.7",
     "ts-loader": "^6.2.2",
     "typescript": "^3.9.7",
     "webpack": "^4.44.2",
-    "webpack-cli": "^3.3.12"
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
     "3box": "^1.22.2",
     "@ethersproject/address": "^5.0.5",
+    "@isomorphic-git/lightning-fs": "^4.3.0",
     "@remixproject/plugin-webview": "^0.3.2",
     "@types/3box": "^1.22.0",
-    "jquery": "^3.5.1"
+    "browserfs": "^1.4.3",
+    "ipfs": "^0.52.0",
+    "isomorphic-git": "^1.8.0",
+    "jquery": "^3.5.1",
+    "mustache-loader": "^1.4.3",
+    "path": "^0.12.7"
   }
 }
