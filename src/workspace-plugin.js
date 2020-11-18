@@ -20,17 +20,33 @@ import EventEmitter from 'events'
 import IpfsHttpClient from 'ipfs-http-client'
 import httpclient from 'isomorphic-git/http/web/index'
 import path from 'path'
+import CodeMirror from 'codemirror/lib/codemirror.js';
+import {Diff, diffLines, diffChars, createPatch } from 'diff';
+import * as Diff2Html from 'diff2html';
 
 const defaultHost = 'localhost' // ethdev berlin ipfs node
 const defaultPort = 5001
 const defaultProtocol = 'http'
 const ipfsurl = "https://ipfs.io/ipfs/";
 
+
+
 export class WorkSpacePlugin extends PluginClient {
 
   constructor() {
 
     super();
+
+
+    this.editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      lineNumbers: true,
+    });
+    this.editor.setValue("ready...")
+
+    this.newfileeditor = CodeMirror.fromTextArea(document.getElementById('newfileditor'), {
+      lineNumbers: true
+    });
+    this.newfileeditor.setValue("add your content here")
 
     this.filesToSend = [];
     this.fs = new FS("remix-workspace"); // INDEXEDDB NAME
@@ -60,6 +76,9 @@ export class WorkSpacePlugin extends PluginClient {
     })
     $("#addfile-btn").click(async () => {
       await this.addFile()
+    })
+    $("#savefile-btn").click(async () => {
+      await this.saveFile()
     })
     $(document).on("click", ".viewfile", async (...args) => {
       await this.viewFile(args)
@@ -131,22 +150,39 @@ export class WorkSpacePlugin extends PluginClient {
   async addFile() {
 
 
-    await this.fsp.writeFile(`/${$("#filename").val()}`, $("#filecontent").val());
+    await this.fsp.writeFile(`/${$("#filename").val()}`, this.newfileeditor.getValue());
     await this.showFiles();
     alert("file added");
   }
 
   async viewFile(args) {
+    let filename = $(args[0].currentTarget).data("file");
     console.log($(args[0].currentTarget).data("file"));
-    let content = await this.fsp.readFile($(args[0].currentTarget).data("file"), {
+    let content = await this.fsp.readFile(filename, {
       encoding: 'utf8'
     })
-    $("#fileviewer").find("#filecontent").val(content);
-    $('#fileviewer').modal('show')
+    $("#files").hide();
+    $("#diff-container").hide();
+    $("#editor-container").show();
+    this.editor.setValue(content)
+    $("#editorfile").html(filename);
+    //$('#fileviewer').modal('show')
+    
+  }
+
+  async saveFile(){
+    let filename =  $("#editorfile").html();
+    let content = this.editor.getValue()
+    await this.fsp.writeFile(filename, content)
+    await this.showFiles()
+    $("#editor-container").hide();
   }
 
   async diffFile(args){
+    $("#files").hide();
+    $("#diff-container").show();
     let fs = this.fs
+    let fullfilename = $(args[0].currentTarget).data("file");
     let filename = path.basename($(args[0].currentTarget).data("file"))
     let commitOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' })
     console.log(commitOid)
@@ -156,7 +192,17 @@ export class WorkSpacePlugin extends PluginClient {
       oid: commitOid,
       filepath: filename
     })
-    console.log(Buffer.from(blob).toString('utf8'))
+    
+    let original = await this.fsp.readFile(fullfilename,{encoding:'utf8'})
+    let newcontent = Buffer.from(blob).toString('utf8');
+    console.log(newcontent,original)
+    let filediff = createPatch(filename,original,newcontent) //diffLines(original,newcontent)
+
+    console.log(filediff)
+
+    let diffview = Diff2Html.html(filediff)
+    $("#diffviewer").html(diffview)
+    
   }
 
   async getDirectory(dir) {
@@ -214,7 +260,8 @@ export class WorkSpacePlugin extends PluginClient {
   }
 
   async showFiles() {
-
+    $("#files").show();
+    $("#diff-container").hide();
     let files = await this.getDirectory("/");
     files = files.filter((element, index, array) => {
       console.log(element)
@@ -316,8 +363,18 @@ export class WorkSpacePlugin extends PluginClient {
     })
     $("#status").empty();
     commits.map((x) => {
-      $("#status").append(x.commit.message).append("<br>");
+      console.log(x)
+      x.date = new Date(x.commit.committer.timestamp).toString()
+      //$("#status").append(x.commit.message).append(x.oid).append("<br>");
     })
+
+    var template = require('./commits.html');
+    var html = template({
+      commits: commits
+    });
+    $("#status").html(html);
+
+
   }
 
   async commit() {

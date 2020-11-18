@@ -1,0 +1,17 @@
+<hr>
+<h4>commmits</h4>
+<div class="container-fluid">
+{{#commits}}
+<div class="row p-1 small">
+    <div class="col">
+        {{commit.message}}
+    </div>
+    <div class="col">
+        {{oid}}
+    </div>
+    <div class="col">
+        {{date}}
+    </div>
+</div>
+{{/commits}}
+</div>

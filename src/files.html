@@ -2,20 +2,20 @@
 <div class="container-fluid">
 {{#files}}
 <div class="row p-1">
-    <div class="col-1">
+    <div class="col-1 small">
         {{directory}}
     </div>
-    <div class="col-1">
+    <div class="col-3 small">
         {{filename}}
     </div>
-    <div class="col">
-        <div class="btn btn-sm btn-secondary viewfile" data-file="{{name}}">
+    <div class="col-6">
+        <div class="btn btn-primary btn-sm viewfile" data-file="{{name}}">
             view/edit
         </div>
-        <div class="btn btn-sm btn-primary addgit" data-file="{{name}}">
+        <div class="btn btn-primary btn-sm addgit" data-file="{{name}}">
             git add
         </div>
-        <div class="btn btn-sm btn-primary diff" data-file="{{name}}">
+        <div class="btn btn-primary btn-sm diff" data-file="{{name}}">
             git diff
         </div>
         {{#status}}
