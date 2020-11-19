@@ -3,7 +3,7 @@
 <div class="container-fluid">
 {{#commits}}
 <div class="row p-1 small">
-    <div class="col">
+    <div class="col-2">
         {{commit.message}}
     </div>
     <div class="col">
@@ -11,6 +11,9 @@
     </div>
     <div class="col">
         {{date}}
+    </div>
+    <div class="btn btn-primary btn-sm checkout" data-file="{{oid}}">
+        git checkout
     </div>
 </div>
 {{/commits}}

@@ -21,27 +21,30 @@ import IpfsHttpClient from 'ipfs-http-client'
 import httpclient from 'isomorphic-git/http/web/index'
 import path from 'path'
 import CodeMirror from 'codemirror/lib/codemirror.js';
-import {Diff, diffLines, diffChars, createPatch } from 'diff';
+import {
+  Diff,
+  diffLines,
+  diffChars,
+  createPatch
+} from 'diff';
 import * as Diff2Html from 'diff2html';
+import WalletConnectProvider from "@walletconnect/web3-provider";
+import Web3Modal from "web3modal";
 
 const defaultHost = 'localhost' // ethdev berlin ipfs node
 const defaultPort = 5001
 const defaultProtocol = 'http'
 const ipfsurl = "https://ipfs.io/ipfs/";
-
-
-
 export class WorkSpacePlugin extends PluginClient {
 
   constructor() {
-
+    console.clear();
     super();
 
-
-    this.editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+    this.fileeditor = CodeMirror.fromTextArea(document.getElementById('editor'), {
       lineNumbers: true,
     });
-    this.editor.setValue("ready...")
+    this.fileeditor.setValue("ready...")
 
     this.newfileeditor = CodeMirror.fromTextArea(document.getElementById('newfileditor'), {
       lineNumbers: true
@@ -49,9 +52,40 @@ export class WorkSpacePlugin extends PluginClient {
     this.newfileeditor.setValue("add your content here")
 
     this.filesToSend = [];
-    this.fs = new FS("remix-workspace"); // INDEXEDDB NAME
+
+    // This inits a IndexedDB database
+    this.fs = new FS("remix-workspace");
     this.fsp = this.fs.promises;
 
+
+    console.log("app started")
+
+    // REMIX CLIENT 
+    this.client = createClient(this)
+    this.client.onload().then(async () => {
+
+      console.log("workspace client loaded", this)
+      //await this.getFilesFromIde()
+      //await this.addToIpfs()
+      await this.gitinit()
+    });
+
+    this.setClickHandlers();
+    // IPFS HOST
+
+
+    this.ipfs = IpfsHttpClient({
+      host: defaultHost,
+      port: defaultPort,
+      protocol: defaultProtocol
+    })
+
+    this.showFiles();
+
+    return undefined
+  }
+
+  async setClickHandlers() {
     // UI CLICK HANDLERS
     $("#files-btn").click(async () => {
       await this.showFiles()
@@ -66,13 +100,13 @@ export class WorkSpacePlugin extends PluginClient {
       await this.commit()
     })
     $("#main-btn").click(async () => {
-      await this.setFileSystem()
+      await this.addToIpfs()
     })
     $("#clone-btn").click(async () => {
       await this.clone()
     })
     $("#status-btn").click(async () => {
-      await this.status()
+      await this.log()
     })
     $("#addfile-btn").click(async () => {
       await this.addFile()
@@ -80,6 +114,19 @@ export class WorkSpacePlugin extends PluginClient {
     $("#savefile-btn").click(async () => {
       await this.saveFile()
     })
+    $("#wallet-btn").click(async () => {
+      await this.openModal()
+    })
+    $("#3box-btn").click(async () => {
+      await this.connect3Box()
+    })
+    $("#3boxExport-btn").click(async () => {
+      await this.storeHashIn3Box()
+    })
+    $("#import3b-btn").click(async () => {
+      await this.importFrom3Box()
+    })
+
     $(document).on("click", ".viewfile", async (...args) => {
       await this.viewFile(args)
     })
@@ -87,53 +134,24 @@ export class WorkSpacePlugin extends PluginClient {
       await this.diffFile(args)
     })
     $(document).on("click", ".addgit", async (...args) => {
-      console.log($(args[0].currentTarget).data("file"));
-      let filename = $(args[0].currentTarget).data("file");
-      let content = await this.fsp.readFile(filename, {
-        encoding: 'utf8'
-      })
-      let basename = path.basename(filename);
-      let directory = path.dirname(filename)
-      console.log(basename, directory)
-      let fs = this.fs;
-      await git.add({
-        fs,
-        dir: directory,
-        filepath: basename
-      })
-      await this.showFiles();
-      alert("added");
+      await this.addToGit(args)
     })
-    console.log("app started")
+  }
 
-    // REMIX CLIENT 
-    // this.client = createClient(this)
-    // this.client.onload().then(async () => {
-
-    //   console.log("workspace client loaded", this)
-    //   //await this.getFilesFromIde()
-    //   await this.setFileSystem()
-    // });
-
-
-    // IPFS HOST
-
-
-    this.ipfs = IpfsHttpClient({
-      host: defaultHost,
-      port: defaultPort,
-      protocol: defaultProtocol
-    })
-
-
-
-    return undefined
+  async showtoast(str=""){
+    $(".toast").css("top",window.scrollY);
+    $('.toast').toast('show')
+    $('.toast-body').html(str)
   }
 
   async clearDb() {
     var req = indexedDB.deleteDatabase("remix-workspace");
-    req.onsuccess = function () {
-      alert("Deleted database successfully");
+    let me = this;
+    
+    req.onsuccess = async function () {
+      this.showtoast("Deleted database successfully");
+      await me.log();
+      await me.showFiles();
     };
   }
 
@@ -143,16 +161,15 @@ export class WorkSpacePlugin extends PluginClient {
       fs,
       dir: "/"
     })
-    alert("git init done")
-
+    //alert("git init done")
+    this.showtoast("GIT initialized");
   }
 
   async addFile() {
 
-
     await this.fsp.writeFile(`/${$("#filename").val()}`, this.newfileeditor.getValue());
     await this.showFiles();
-    alert("file added");
+    this.showtoast("file added");
   }
 
   async viewFile(args) {
@@ -164,45 +181,72 @@ export class WorkSpacePlugin extends PluginClient {
     $("#files").hide();
     $("#diff-container").hide();
     $("#editor-container").show();
-    this.editor.setValue(content)
+    this.fileeditor.setValue(content)
     $("#editorfile").html(filename);
     //$('#fileviewer').modal('show')
-    
+
   }
 
-  async saveFile(){
-    let filename =  $("#editorfile").html();
-    let content = this.editor.getValue()
+  async saveFile() {
+    let filename = $("#editorfile").html();
+    let content = this.fileeditor.getValue()
     await this.fsp.writeFile(filename, content)
     await this.showFiles()
     $("#editor-container").hide();
   }
 
-  async diffFile(args){
+  async addToGit(args) {
+    console.log($(args[0].currentTarget).data("file"));
+    let filename = $(args[0].currentTarget).data("file");
+    let content = await this.fsp.readFile(filename, {
+      encoding: 'utf8'
+    })
+    let basename = path.basename(filename);
+    let directory = path.dirname(filename)
+    console.log(basename, directory)
+    let fs = this.fs;
+    await git.add({
+      fs,
+      dir: directory,
+      filepath: basename
+    })
+    await this.showFiles();
+    this.showtoast("added");
+  }
+
+  async diffFile(args) {
     $("#files").hide();
     $("#diff-container").show();
     let fs = this.fs
     let fullfilename = $(args[0].currentTarget).data("file");
     let filename = path.basename($(args[0].currentTarget).data("file"))
-    let commitOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' })
+    let commitOid = await git.resolveRef({
+      fs,
+      dir: '/',
+      ref: 'HEAD'
+    })
     console.log(commitOid)
-    let { blob } = await git.readBlob({
+    let {
+      blob
+    } = await git.readBlob({
       fs,
       dir: '/',
       oid: commitOid,
       filepath: filename
     })
-    
-    let original = await this.fsp.readFile(fullfilename,{encoding:'utf8'})
+
+    let original = await this.fsp.readFile(fullfilename, {
+      encoding: 'utf8'
+    })
     let newcontent = Buffer.from(blob).toString('utf8');
-    console.log(newcontent,original)
-    let filediff = createPatch(filename,original,newcontent) //diffLines(original,newcontent)
+    console.log(newcontent, original)
+    let filediff = createPatch(filename, original, newcontent) //diffLines(original,newcontent)
 
     console.log(filediff)
 
     let diffview = Diff2Html.html(filediff)
     $("#diffviewer").html(diffview)
-    
+
   }
 
   async getDirectory(dir) {
@@ -230,6 +274,7 @@ export class WorkSpacePlugin extends PluginClient {
   }
 
   async clone() {
+    await this.clearDb()
     const cid = $("#ipfs").val();
     console.log(cid);
     //return true;
@@ -256,7 +301,7 @@ export class WorkSpacePlugin extends PluginClient {
       await this.fsp.writeFile(file.path, content[0])
     }
 
-    await this.status();
+    await this.log();
   }
 
   async showFiles() {
@@ -351,9 +396,10 @@ export class WorkSpacePlugin extends PluginClient {
     return new TextDecoder("utf-8").decode(uint8array);
   }
 
-  async status() {
+  async log() {
 
     let fs = this.fs;
+    $("#status").empty();
     console.log(fs);
 
     let commits = await git.log({
@@ -361,7 +407,7 @@ export class WorkSpacePlugin extends PluginClient {
       dir: '/',
       depth: 5
     })
-    $("#status").empty();
+
     commits.map((x) => {
       console.log(x)
       x.date = new Date(x.commit.committer.timestamp).toString()
@@ -388,11 +434,11 @@ export class WorkSpacePlugin extends PluginClient {
       },
       message: $("#message").val()
     })
-    alert(`commited ${sha}`)
-    await this.status();
+    this.showtoast(`commited ${sha}`)
+    await this.log();
   }
 
-  async setFileSystem() {
+  async addToIpfs() {
 
     this.filesToSend = [];
     let files = await this.getDirectory("/");
@@ -412,146 +458,91 @@ export class WorkSpacePlugin extends PluginClient {
       wrapWithDirectory: true,
     };
 
-
-
-
-
     this.ipfs.add(this.filesToSend, addOptions).then((x) => {
       console.log(x.cid.string)
       $("#CID").attr("href", `${ipfsurl}${x.cid.string}`);
       $("#CID").html(x.cid.string);
+      this.cid = x.cid.string;
     });
 
     return true
-    // fs = new FS("remix-workspace");
-    // let fsp = fs.promises;
-    // // this.fspromises = this.fs.promises;
-    // let dir = '/tutorial'
-    // // console.log(dir);
-    // try {
-    //   await fsp.mkdir(dir);
-    // } catch (err) {
-    //   console.log(err)
-    // }
-    // // // Behold - it is empty!
-    // let files = await fsp.readdir(`${dir}/.git`);
-    // console.log(files)
-    // files = await fsp.stat(`${dir}/.git`);
-    // console.log(files)
-    // files = await fsp.lstat(`${dir}/.git`);
-    // console.log(files)
-    // // //this.fspromises = this.fs.promises;
-
-
-
-
-    // try {
-    //   await fsp.mkdir(`${dir}/test`);
-    // } catch (err) {
-    //   console.log(err)
-    // }
-
-    // await fsp.writeFile(`${dir}/test/yann2.txt`, "is a genius" + Math.random());
-
-    // await git.init({
-    //   fs,
-    //   dir: dir
-    // })
-    // await git.add({
-    //   fs,
-    //   dir: '/tutorial',
-    //   filepath: "yann.txt"
-    // })
-    // await git.add({
-    //   fs,
-    //   dir: '/tutorial/test',
-    //   filepath: "yann2.txt"
-    // })
-
-    // let status = await git.status({
-    //   fs,
-    //   dir: '/tutorial',
-    //   filepath: 'yann.txt'
-    // })
-    // console.log(status)
-
-    // // All the files in the previous commit
-    // //files = await git.listFiles({ fs, dir: '/tutorial', ref: 'HEAD' })
-    // //console.log(files)
-    // // All the files in the current staging area
-    // files = await git.listFiles({
-    //   fs,
-    //   dir: '/tutorial'
-    // })
-    // console.log(files)
-
-    // let sha = await git.commit({
-    //   fs,
-    //   dir: '/tutorial',
-    //   author: {
-    //     name: 'Mr. Test',
-    //     email: 'mrtest@example.com',
-    //   },
-    //   message: 'Added the a.txt file'
-    // })
-    // console.log("SHA", sha)
-
-    // let commits = await git.log({
-    //   fs,
-    //   dir: '/tutorial',
-    //   depth: 5,
-    //   ref: 'HEAD'
-    // })
-    // console.log(commits)
-
-    // await fsp.writeFile(`${dir}/yann.txt`, "is a genius" + Math.random());
-
-    // status = await git.status({
-    //   fs,
-    //   dir: '/tutorial',
-    //   filepath: 'yann.txt'
-    // })
-    // console.log(status)
-
-    // files = await git.listFiles({
-    //   fs,
-    //   dir: '/tutorial'
-    // })
-    // console.log(files)
-
-    // let {
-    //   packfile
-    // } = await git.packObjects({
-    //   fs,
-    //   dir: '/tutorial',
-    //   oids: [sha],
-    //   write: false
-    // })
-    // console.log(this.Decodeuint8arr(packfile))
-
-    /*     sha = await git.resolveRef({
-          fs,
-          dir: '/tutorial',
-          ref: 'HEAD'
-        })
-        console.log(sha)
-        let commit = await git.readCommit({
-          fs,
-          dir: '/tutorial',
-          oid: sha
-        })
-        console.log(commit) */
-
-    // files = await  fsp.readdir(`${dir}/.git`);
-
-    // console.log(files)
-
-    // await this.fspromises.writeFile(`${dir}/yann.txt`,"is a genius",{},(x)=>{console.log(x)});
-    // console.log(this.fspromises);
-    // console.log(git);
-    // let promises = this.fspromises
-
-
-
   }
+
+  // 3BOX connection
+
+  async connect3Box() {
+    this.box = await Box.openBox(this.address, this.provider);
+    this.space = await this.box.openSpace("remix-workspace");
+    console.log(this.space)
+  }
+
+  async storeHashIn3Box() {
+    console.log("export 3box", this.cid, this.space)
+    await this.space.private.set("cid", this.cid)
+    this.showtoast("stored in 3box")
+  }
+
+  async importFrom3Box() {
+    let cid = await this.space.private.get("cid")
+    console.log("cid", cid)
+    this.cid = cid;
+    $("#ipfs").val(this.cid);
+    await this.clone();
+  }
+
+  // WEB3 modal functions
+
+  async initModal() {
+    try {
+      const currentTheme = await this.call('theme', 'currentTheme')
+      console.log('theme', currentTheme)
+      this.web3Modal.updateTheme(currentTheme.quality)
+
+      this.on('theme', 'themeChanged', (theme) => {
+        this.web3Modal.updateTheme(theme.quality)
+        console.log('theme', theme)
+      })
+
+      this.web3Modal.on('connect', async (provider) => {
+        this.provider = provider
+        const [address] = await this.provider.enable();
+        this.address = getAddress(address);
+        console.log(this.address)
+        /*         this.internalEvents.emit('accountsChanged', provider.accounts || [])
+                this.internalEvents.emit('chainChanged', provider.chainId)
+                this.provider.on("accountsChanged", (accounts) => {
+                  this.internalEvents.emit('accountsChanged', accounts || [])
+                });
+
+                this.provider.on("chainChanged", (chain) => {
+                  this.internalEvents.emit('chainChanged', chain)
+                }); */
+      })
+    } catch (e) {
+      console.log(e)
+    }
+  }
+  async openModal() {
+    if (!this.web3Modal) {
+      this.web3Modal = new Web3Modal({
+        providerOptions: this.getProviderOptions() // required
+      });
+      await this.initModal()
+    }
+    if (!this.web3Modal.show) {
+      this.web3Modal.toggleModal()
+    }
+  }
+
+  getProviderOptions() {
+    const providerOptions = {
+      walletconnect: {
+        package: WalletConnectProvider,
+        options: {
+          infuraId: '83d4d660ce3546299cbe048ed95b6fad'
+        }
+      }
+    };
+    return providerOptions;
+  };
 }

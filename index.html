@@ -8,8 +8,8 @@
   <title>3Box Spaces for Remix</title>
   <link rel="stylesheet" href="./index.css" />
   <!-- CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
-    integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+    integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous"> -->
   <link rel="stylesheet" href="/node_modules/codemirror/lib/codemirror.css">
   <link rel="stylesheet" href="/node_modules/diff2html/bundles/css/diff2html.min.css">
 </head>
@@ -28,56 +28,73 @@
       <label for="exampleInputPassword1">content</label>
       <textarea class="form-control" id="newfileditor" rows="1"></textarea>
     </div>
-    <button type="button" id="addfile-btn" class="btn btn-primary">Add file</button>
+    <button type="button" id="addfile-btn" class="btn w-25 btn-primary">Add file</button>
 
     <hr>
-    <button class="btn btn-primary" id="files-btn">show files</button>
+    <button class="btn w-25 btn-primary" id="files-btn">show files</button>
     <div id="files"></div>
     <hr>
     <div id="diff-container">
-    <div id="diffviewer"></div>
-    <hr>
+      <div id="diffviewer"></div>
+      <hr>
     </div>
     <div style="display: none;" id="editor-container">
       <h4>editor</h4>
       <h5 id='editorfile'></h5>
       <hr>
-      <button class="btn btn-primary" id="savefile-btn">save</button>
-      <button class="btn btn-primary" id="cancelfile-btn">cancel</button>
+      <button class="btn w-25 btn-primary" id="savefile-btn">save</button>
+      <button class="btn w-25 btn-primary" id="cancelfile-btn">cancel</button>
       <hr>
       <textarea id="editor" class="form-control" rows="20">
     test
   </textarea>
       <hr>
     </div>
-    <button class="btn btn-primary" id="clear-btn">clear files</button>
+    <button class="btn w-25 btn-primary" id="clear-btn">clear files</button>
     <hr>
     <h4 class="pb-1">GIT</h4>
-    <button class="btn btn-primary" id="init-btn">init git</button>
+    <button class="btn w-25 btn-primary" id="init-btn">init git</button>
 
     <hr>
-    <button class="btn btn-primary" id="status-btn">git log</button>
+    <button class="btn w-25 btn-primary" id="status-btn">git log</button>
     <div id="status"></div>
     <hr>
     <div class="form-group">
       <label>Message</label><input class="form-control" type="text" id="message">
     </div>
-    <button class="btn btn-primary" id="commit-btn">git commit</button>
+    <button class="btn w-25 btn-primary" id="commit-btn">git commit</button>
     <hr>
-    <button class="btn btn-primary" id="main-btn">upload to ipfs</button>
+    <h4>Export</h4>
+    <hr>
+    <button class="btn w-25 btn-primary" id="main-btn">upload to ipfs</button>
     <br>
     <a target="_blank" href="#" id="CID"></a>
+    <hr>
+    <button class="btn w-25 btn-primary" id="wallet-btn">wallet connect</button>
+    <hr>
+    <button class="btn w-25 btn-primary" id="3box-btn">3Box connect</button> <button class="btn w-25 btn-primary"
+      id="3boxExport-btn">Export to 3Box</button>
+    <hr>
+    <h4>Import</h4>
     <hr>
     <div class="form-group">
       <label>IPFS CID</label><input class="form-control" type="text" id="ipfs">
     </div>
-    <button class="btn btn-primary" id="clone-btn">git clone</button>
-
+    <button class="btn w-25 btn-primary" id="clone-btn">git clone</button>
+    <hr>
+    <button class="btn w-25 btn-primary" id="import3b-btn">Import from 3BOX</button>
     <hr>
 
   </div>
   <div class="container-fluid">
 
+  </div>
+
+
+  <div class="toast" style="position: absolute; top: 0; right: 0;" data-delay="3000">
+    <div class="toast-body">
+      Hello, world! This is a toast message.
+    </div>
   </div>
 
 
