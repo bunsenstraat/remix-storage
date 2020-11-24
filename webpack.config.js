@@ -17,10 +17,10 @@ module.exports = {
       },
       {
         test: /\.html$/,
-        loader: 'mustache-loader'
+        loader: 'mustache-loader',
         // loader: 'mustache-loader?minify'
         // loader: 'mustache-loader?{ minify: { removeComments: false } }'
-        // loader: 'mustache-loader?noShortcut'
+        loader: 'mustache-loader?noShortcut'
       } 
     ]
   },

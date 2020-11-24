@@ -37,7 +37,7 @@ const defaultPort = 5001
 const defaultProtocol = 'http'
 const ipfsurl = 'https://ipfs.io/ipfs/'
 export class WorkSpacePlugin extends PluginClient {
-  constructor () {
+  constructor() {
     console.clear()
     super()
 
@@ -105,13 +105,14 @@ export class WorkSpacePlugin extends PluginClient {
       protocol: defaultProtocol
     })
 
-    // this.showFiles();
+    this.showFiles()
 
     return undefined
   }
 
-  async setClickHandlers () {
-    // UI CLICK HANDLERS
+  // UI CLICK HANDLERS
+
+  async setClickHandlers() {
     $('#files-btn').click(async () => {
       await this.showFiles()
     })
@@ -152,8 +153,15 @@ export class WorkSpacePlugin extends PluginClient {
       await this.importFrom3Box()
     })
 
+    $('.nav-link').click(async (...args) => {
+      await this.navigateTo(args)
+    })
+
     $(document).on('click', '.viewfile', async (...args) => {
       await this.viewFile(args)
+    })
+    $(document).on('click', '.checkout-btn', async (...args) => {
+      await this.checkout(args)
     })
     $(document).on('click', '.diff', async (...args) => {
       await this.diffFile(args)
@@ -163,25 +171,30 @@ export class WorkSpacePlugin extends PluginClient {
     })
   }
 
-  async showtoast (str = '') {
+  // UI Elements
+
+  async showtoast(str = '') {
     $('.toast-body').html(str)
-    $('.toast').css('top', window.scrollY+window.innerHeight/2)
-    $('.toast').css('right', window.innerWidth/2 - $('.toast').outerWidth()/2)
+    $('.toast').css('top', window.scrollY + window.innerHeight / 2)
+    $('.toast').css('right', window.innerWidth / 2 - $('.toast').outerWidth() / 2)
     $('.toast').toast('show')
   }
 
-  async clearDb () {
-    const req = indexedDB.deleteDatabase('remix-workspace')
-    const me = this
-
-    req.onsuccess = async function () {
-      me.showtoast('Deleted database successfully')
-      await me.log()
-      await me.showFiles()
-    };
+  async addAlert(id, message) {
+    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-danger').addClass('mt-2').show()
   }
 
-  async gitinit () {
+  async addInfo(id, message) {
+    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-info').addClass('mt-2').show()
+  }
+
+  async addSuccess(id, message) {
+    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-success').addClass('mt-2').show()
+  }
+
+  // Git functions
+
+  async gitinit() {
     const fs = this.fs
     try {
       await git.init({
@@ -196,12 +209,56 @@ export class WorkSpacePlugin extends PluginClient {
     }
   }
 
-  async addFileFromBrowser (file) {
+  async addToGit(args) {
+    console.log('ADD TO GIT', $(args[0].currentTarget).data('file'))
+    const filename = $(args[0].currentTarget).data('file')
+    const basename = path.basename(filename)
+    const directory = path.dirname(filename)
+    console.log('will add', basename, directory)
+    const fs = this.fs
+    const added = await git.add({
+      fs,
+      dir: '/',
+      filepath: this.removeSlash(filename)
+    })
+    await this.showFiles()
+    this.showtoast('added ', added)
+  }
+
+  async checkout(args) {
+
+    const oid = $(args[0].currentTarget).data('oid')
+    console.log("checkout", oid)
+    let fs = this.fs
+    await git.checkout({
+      fs,
+      dir: '/',
+      ref: oid
+    })
+
+    console.log('done')
+    await this.showFiles();
+  }
+
+  // File functions
+
+  async clearDb() {
+    const req = indexedDB.deleteDatabase('remix-workspace')
+    const me = this
+
+    req.onsuccess = async function () {
+      me.showtoast('Deleted database successfully')
+      await me.log()
+      await me.showFiles()
+    }
+  }
+
+  async addFileFromBrowser(file) {
     const content = await this.client.call('fileManager', 'readFile', file)
     await this.addFile(file, content)
   }
 
-  async addFile (file, content) {
+  async addFile(file, content) {
     console.log('add file ', file)
     const directories = path.dirname(file)
     await this.createDirectoriesFromString(directories)
@@ -209,7 +266,7 @@ export class WorkSpacePlugin extends PluginClient {
     await this.showFiles()
   }
 
-  async createDirectoriesFromString (directories) {
+  async createDirectoriesFromString(directories) {
     const ignore = ['.', '/.', '']
     console.log('directory', directories, ignore.indexOf(directories))
     if (ignore.indexOf(directories) > -1) return false
@@ -230,31 +287,13 @@ export class WorkSpacePlugin extends PluginClient {
     }
   }
 
-  async addFileFromEditor () {
-    await this.fsp.addFile(`${$('#filename').val()}`, this.newfileeditor.getValue())
-    await this.showFiles()
-    this.showtoast('file added')
-  }
-
-  async viewFile (args) {
+  async viewFile(args) {
     const filename = $(args[0].currentTarget).data('file')
     console.log($(args[0].currentTarget).data('file'))
-    /*     let content = await this.fsp.readFile(filename, {
-          encoding: 'utf8'
-        }) */
-
-    // await this.remix.call('fileManager', 'setFile', , content)
     await this.client.call('fileManager', 'switchFile', `${this.removeSlash(filename)}`)
-
-    /*     $("#files").hide();
-        $("#diff-container").hide();
-        $("#editor-container").show();
-        this.fileeditor.setValue(content)
-        $("#editorfile").html(filename);
-        //$('#fileviewer').modal('show') */
   }
 
-  async saveFile () {
+  async saveFile() {
     const filename = $('#editorfile').html()
     const content = this.fileeditor.getValue()
     await this.fsp.writeFile(filename, content)
@@ -262,23 +301,7 @@ export class WorkSpacePlugin extends PluginClient {
     $('#editor-container').hide()
   }
 
-  async addToGit (args) {
-    console.log('ADD TO GIT', $(args[0].currentTarget).data('file'))
-    const filename = $(args[0].currentTarget).data('file')
-    const basename = path.basename(filename)
-    const directory = path.dirname(filename)
-    console.log('will add', basename, directory)
-    const fs = this.fs
-    const added = await git.add({
-      fs,
-      dir: '/',
-      filepath: this.removeSlash(filename)
-    })
-    await this.showFiles()
-    this.showtoast('added ', added)
-  }
-
-  async diffFile (args) {
+  async diffFile(args) {
     $('#files').hide()
     $('#diff-container').show()
     const fs = this.fs
@@ -287,32 +310,36 @@ export class WorkSpacePlugin extends PluginClient {
     const commitOid = await git.resolveRef({
       fs,
       dir: '/',
-      ref: 'HEAD'
-    })
-    console.log(commitOid)
-    const {
-      blob
-    } = await git.readBlob({
-      fs,
-      dir: '/',
-      oid: commitOid,
-      filepath: filename
+      ref: 'master'
     })
 
-    const original = await this.fsp.readFile(fullfilename, {
-      encoding: 'utf8'
-    })
-    const newcontent = Buffer.from(blob).toString('utf8')
-    console.log(newcontent, original)
-    const filediff = createPatch(filename, original, newcontent) // diffLines(original,newcontent)
+    try {
+      const {
+        blob
+      } = await git.readBlob({
+        fs,
+        dir: '/',
+        oid: commitOid,
+        filepath: this.removeSlash(fullfilename)
+      })
 
-    console.log(filediff)
+      const original = await this.fsp.readFile(fullfilename, {
+        encoding: 'utf8'
+      })
+      const newcontent = Buffer.from(blob).toString('utf8')
+      const filediff = createPatch(filename, original, newcontent) // diffLines(original,newcontent)
 
-    const diffview = Diff2Html.html(filediff)
-    $('#diffviewer').html(diffview)
+      const diffview = Diff2Html.html(filediff)
+      $('#diffviewer').html(diffview)
+    } catch (e) {
+      this.showtoast("Nothing to diff!")
+      $('#files').show()
+      $('#diff-container').hide()
+    }
   }
 
-  async getDirectory (dir) {
+  async getDirectory(dir) {
+    console.log('get directory')
     let result = []
     const files = await this.fsp.readdir(`${dir}`)
     console.log('readdir', files)
@@ -320,14 +347,14 @@ export class WorkSpacePlugin extends PluginClient {
     for (let i = 0; i < files.length; i++) {
       const fi = files[i]
       if (typeof fi !== 'undefined') {
-        console.log('looking into ', fi, dir)
+        // console.log('looking into ', fi, dir)
         if (dir === '/') dir = ''
         const type = await this.fsp.stat(`${dir}/${fi}`)
         if (type.type === 'dir') {
-          console.log('is directory, so get ', `${dir}/${fi}`)
+          // console.log('is directory, so get ', `${dir}/${fi}`)
           result = [...result, ...await this.getDirectory(`${dir}/${fi}`)]
         } else {
-          console.log('is file ', `${dir}/${fi}`)
+          // console.log('is file ', `${dir}/${fi}`)
           result.push(`${dir}/${fi}`)
         }
       }
@@ -337,11 +364,88 @@ export class WorkSpacePlugin extends PluginClient {
     return result
   }
 
-  removeSlash (s) {
+  async jsonObjectFromFileList(files) {
+    const ob = []
+    // reindex filelist
+    files.map((f, i) => {
+      const dirname = path.dirname(files[i])
+      if (dirname.startsWith('/.'))
+        return true
+      const basename = path.basename(files[i])
+      const directories = this.removeSlash(dirname).split('/')
+      if (!ob.find((x) => {
+          return x.fullname === dirname
+        })) ob.push({
+        type: 'dir',
+        name: directories.pop(),
+        fullname: dirname,
+        parentDir: path.dirname(dirname)
+      })
+
+      let previouspath = ''
+      for (let i = 0; i < directories.length; i++) {
+        if (i > 0)
+          previouspath = '/' + directories.slice(0, i).join('/')
+        const finalPath = previouspath + '/' + directories[i]
+        if (!ob.find((x) => {
+            return x.fullname === finalPath
+          })) ob.push({
+          type: 'dir',
+          name: directories[i],
+          fullname: finalPath,
+          parentDir: path.dirname(finalPath)
+        })
+      }
+      if (!ob.find((x) => {
+          return x.fullname === files[i]
+        })) ob.push({
+        type: 'file',
+        name: basename,
+        fullname: files[i],
+        directory: dirname,
+        status: []
+      })
+    })
+    // asign ids
+    ob.map((f, i) => {
+      f.id = i
+    })
+    // find parents
+    ob.map((f, i) => {
+      if (f.type === 'file') {
+        // f.parent
+        const parent = ob.find((x) => {
+          return (x.fullname === f.directory) && (x.type === 'dir')
+        })
+        f.parentId = parent ? parent.id : undefined
+      } else {
+        console.log(f)
+        const parent = ob.find((x) => {
+          return (x.fullname === f.parentDir) && (x.type === 'dir')
+        })
+        f.parentId = parent ? parent.id : undefined
+      }
+    })
+    // build the tree
+    const t = {}
+    ob.forEach(o => {
+      Object.assign(t[o.id] = t[o.id] || {}, o)
+      t[o.id].children = null
+      t[o.parentId] = t[o.parentId] || {}
+      t[o.parentId].children = t[o.parentId].children || []
+      t[o.parentId].children.push(t[o.id])
+    })
+    console.log(t[0])
+
+    // console.log('OB', ob)
+    return t[0]
+  }
+
+  removeSlash(s) {
     return s.replace(/^\/+/, '')
   }
 
-  async clone () {
+  async clone() {
     await this.clearDb()
     const cid = $('#ipfs').val()
     console.log(cid)
@@ -360,37 +464,31 @@ export class WorkSpacePlugin extends PluginClient {
       for await (const chunk of file.content) {
         content.push(chunk)
       }
-      console.log('create file', file.path)
-      console.log(content[0])
       await this.fsp.writeFile(file.path, content[0] || new Uint8Array())
     }
 
-    await this.log()
+    await this.showFiles()
   }
 
-  async showFiles () {
+  async showFiles() {
     $('#files').show()
     $('#diff-container').hide()
     let files = await this.getDirectory('/')
-    console.log('files', files)
-    files = files.filter((element, index, array) => {
-      console.log(element)
-      return (element.indexOf('.git') === -1)
-    }).map((x) => {
-      return {
-        name: x,
-        filename: path.basename(x),
-        directory: path.dirname(x),
-        status: []
-      }
-    })
-
+    let jsonfiles = await this.jsonObjectFromFileList(files)
+    console.log('files', jsonfiles)
+    const tree = require('./tree.html')
+    const partial = require('./partial.html')
+    //var rendered = tree.render(jsonfiles)
+    var rendered = tree.render(jsonfiles, {
+      "recurse": partial
+    });
+    $('#files').html(rendered)
     const matrix = (await git.statusMatrix({
       fs: this.fs,
       dir: '/'
     })).map((x) => {
       return {
-        filename: x.shift(),
+        filename: `/${x.shift()}`,
         status: x
       }
     })
@@ -413,37 +511,31 @@ export class WorkSpacePlugin extends PluginClient {
     })
 
     // console.log(statusmatrix);
-    console.log('matrix', matrix)
-    console.log('files', files)
+    console.log('matrix', statusmatrix)
+    const status = require('./status.html')
+    const buttons = require('./buttons.html')
     matrix.map((m) => {
-      files.map((f) => {
-        if (this.removeSlash(f.name) === this.removeSlash(m.filename))f.status = m.status
-        statusmatrix.map((sm) => {
-          // console.log(sm, f, JSON.stringify(sm.status), JSON.stringify(f.status))
-          if (JSON.stringify(sm.status) === JSON.stringify(f.status)) {
-            f.status = sm.matrix
-          }
-          return true
-        })
-        return f
-      })
-      return m
-    })
-    console.log('matrix', matrix)
-    console.log('files', files)
+      //console.log(m)
+      const el = $("#files").find(`[data-fullname='${m.filename}']`)
+      statusmatrix.map((sm) => {
+        if (JSON.stringify(sm.status) === JSON.stringify(m.status)) {
+          $(el).find(".status").html(status.render({
+            status: sm.matrix
+          }))
+          $(el).find(".buttons").html(buttons.render({
+            name: m.filename
+          }))
+        }
+      });
+      //console.log(status.render({status:["deleted", " staged"]}))
+      //console.log(m.matrix)
 
-    // render files
-    $('#files').empty()
-    const template = require('./files.html')
-    const html = template({
-      files: files
     })
-    $('#files').html(html)
-
     await this.log()
+    return true
   }
 
-  async getFilesFromIde () {
+  async getFilesFromIde() {
     const files = await this.client.call('fileManager', 'readdir', 'browser')
     console.log(files)
     const filelist = []
@@ -458,11 +550,11 @@ export class WorkSpacePlugin extends PluginClient {
     $('#fileList').html(html)
   }
 
-  Decodeuint8arr (uint8array) {
+  Decodeuint8arr(uint8array) {
     return new TextDecoder('utf-8').decode(uint8array)
   }
 
-  async log () {
+  async log() {
     const fs = this.fs
     $('#status').empty()
     // console.log(fs);
@@ -483,7 +575,7 @@ export class WorkSpacePlugin extends PluginClient {
       })
 
       const template = require('./commits.html')
-      const html = template({
+      const html = template.render({
         commits: commits
       })
       $('#status').html(html)
@@ -495,7 +587,7 @@ export class WorkSpacePlugin extends PluginClient {
     await this.currentBranch()
   }
 
-  async currentBranch () {
+  async currentBranch() {
     $('#branch').empty()
     const fs = this.fs
     try {
@@ -506,7 +598,11 @@ export class WorkSpacePlugin extends PluginClient {
       })
       $('#init-btn').hide()
       $('.gitIsReady').show()
-      this.addInfo('branch', `Branch is: ${branch}`)
+      if (typeof branch === 'undefined') {
+        this.addAlert('branch', `You are in a detached state`)
+      } else {
+        this.addInfo('branch', `Branch is: ${branch}`)
+      }
       console.log('BRANCH', branch)
     } catch (e) {
       // this means git is not init
@@ -517,22 +613,22 @@ export class WorkSpacePlugin extends PluginClient {
     }
   }
 
-  async commit () {
+  async commit() {
     const fs = this.fs
     const sha = await git.commit({
       fs,
       dir: '/',
       author: {
-        name: 'Mr. Test',
+        name: 'Remix Workspace',
         email: 'mrtest@example.com'
       },
       message: $('#message').val()
     })
     this.showtoast(`commited ${sha}`)
-    await this.log()
+    await this.showFiles()
   }
 
-  async addToIpfs () {
+  async addToIpfs() {
     this.filesToSend = []
     const files = await this.getDirectory('/')
     console.log('files to send', files, files.length)
@@ -566,33 +662,21 @@ export class WorkSpacePlugin extends PluginClient {
     return true
   }
 
-  async addAlert (id, message) {
-    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-danger').addClass('mt-2').show()
-  }
-
-  async addInfo (id, message) {
-    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-info').addClass('mt-2').show()
-  }
-
-  async addSuccess (id, message) {
-    $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-success').addClass('mt-2').show()
-  }
-
   // 3BOX connection
 
-  async connect3Box () {
+  async connect3Box() {
     this.box = await Box.openBox(this.address, this.provider)
     this.space = await this.box.openSpace('remix-workspace')
     console.log(this.space)
   }
 
-  async storeHashIn3Box () {
+  async storeHashIn3Box() {
     console.log('export 3box', this.cid, this.space)
     await this.space.private.set('cid', this.cid)
     this.showtoast('stored in 3box')
   }
 
-  async importFrom3Box () {
+  async importFrom3Box() {
     const cid = await this.space.private.get('cid')
     console.log('cid', cid)
     this.cid = cid
@@ -602,7 +686,7 @@ export class WorkSpacePlugin extends PluginClient {
 
   // WEB3 modal functions
 
-  async initModal () {
+  async initModal() {
     try {
       const currentTheme = await this.call('theme', 'currentTheme')
       console.log('theme', currentTheme)
@@ -633,7 +717,7 @@ export class WorkSpacePlugin extends PluginClient {
     }
   }
 
-  async openModal () {
+  async openModal() {
     if (!this.web3Modal) {
       this.web3Modal = new Web3Modal({
         providerOptions: this.getProviderOptions() // required
@@ -645,7 +729,7 @@ export class WorkSpacePlugin extends PluginClient {
     }
   }
 
-  getProviderOptions () {
+  getProviderOptions() {
     const providerOptions = {
       walletconnect: {
         package: WalletConnectProvider,

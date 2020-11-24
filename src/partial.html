@@ -1,0 +1,13 @@
+<ul class="submenu">
+    {{#children}}
+    <li data-id='{{id}}' data-fullname='{{fullname}}' class="">
+            <span class="caret"></span>
+            {{name}}
+            <span class="buttons float-right"></span>
+            <span class="status float-right mr-3"></span>
+
+        {{>recurse}}
+
+    </li>
+    {{/children}}
+</ul>

@@ -35,7 +35,7 @@
           <a class="nav-link" href="#" data-scroll="sectionConnections">Connections</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" data-scroll="sectionExport">Export</a>
+          <a class="nav-link" href="#sectionExport">Export</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#" data-scroll="sectionImport">Import</a>
@@ -64,11 +64,12 @@
 
     <hr> -->
     <hr>
-    <button class="btn w-25 btn-primary" id="files-btn">show files</button>
+    
     <div id="files"></div>
     <hr>
     <div id="diff-container">
       <div id="diffviewer"></div>
+      <button class="btn w-25 btn-primary" id="files-btn">close diff</button>
       <hr>
     </div>
     <div style="display: none;" id="editor-container">
@@ -101,13 +102,14 @@
       <button class="btn w-25 btn-primary" id="commit-btn">git commit</button>
       <hr>
     </div>
-    <h4 id="sectionConnection">Connections</h4>
+    <h4 id="sectionConnections">Connections</h4>
     <hr>
     <button class="btn w-25 btn-primary" id="wallet-btn">wallet connect</button>
     <hr>
     <button class="btn w-25 btn-primary" id="3Box-btn">3Box connect</button> 
     <hr>
-    <h4 id="sectionExport">Export</h4>
+    <h4>Export</h4>
+    <span class="anchor" id="sectionExport"></span>
     <hr>
     <button class="btn w-25 btn-primary" id="main-btn">upload to IPFS only</button>
     <br>
@@ -122,7 +124,7 @@
     <hr>
     <div class="alert alert-warning" role="alert">Importing files from IPFS will clear the filelist.</div>
     <div class="form-group">
-      <label>IPFS CID</label><input class="form-control" type="text" id="IPFS">
+      <label>IPFS CID</label><input class="form-control" type="text" id="ipfs">
     </div>
     <button class="btn w-25 btn-primary" id="clone-btn">import from IPFS</button>
     <hr>
@@ -145,6 +147,8 @@
       Hello, world! This is a toast message.
     </div>
   </div>
+
+
 
 
   <!-- jQuery and JS bundle w/ Popper.js -->
