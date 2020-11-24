@@ -1,76 +1,104 @@
 import {
   createClient
-} from '@remixproject/plugin-webview';
+} from '@remixproject/plugin-webview'
 import {
   PluginClient
-} from '@remixproject/plugin';
+} from '@remixproject/plugin'
 import {
   default as Box
-} from '3box';
+} from '3box'
 import {
   getAddress
-} from '@ethersproject/address';
-import $ from 'jquery';
+} from '@ethersproject/address'
+import $ from 'jquery'
 import git, {
   FsClient,
   PromiseFsClient
 } from 'isomorphic-git'
-import FS from '@isomorphic-git/lightning-fs';
+import FS from '@isomorphic-git/lightning-fs'
 import EventEmitter from 'events'
 import IpfsHttpClient from 'ipfs-http-client'
 import httpclient from 'isomorphic-git/http/web/index'
 import path from 'path'
-import CodeMirror from 'codemirror/lib/codemirror.js';
+import CodeMirror from 'codemirror/lib/codemirror.js'
 import {
   Diff,
   diffLines,
   diffChars,
   createPatch
-} from 'diff';
-import * as Diff2Html from 'diff2html';
-import WalletConnectProvider from "@walletconnect/web3-provider";
-import Web3Modal from "web3modal";
+} from 'diff'
+import * as Diff2Html from 'diff2html'
+import WalletConnectProvider from "@walletconnect/web3-provider"
+import Web3Modal from "web3modal"
 
 const defaultHost = 'localhost' // ethdev berlin ipfs node
 const defaultPort = 5001
 const defaultProtocol = 'http'
-const ipfsurl = "https://ipfs.io/ipfs/";
+const ipfsurl = "https://ipfs.io/ipfs/"
 export class WorkSpacePlugin extends PluginClient {
 
   constructor() {
-    console.clear();
-    super();
+    console.clear()
+    super()
 
     this.fileeditor = CodeMirror.fromTextArea(document.getElementById('editor'), {
       lineNumbers: true,
-    });
+    })
     this.fileeditor.setValue("ready...")
 
-    this.newfileeditor = CodeMirror.fromTextArea(document.getElementById('newfileditor'), {
-      lineNumbers: true
-    });
-    this.newfileeditor.setValue("add your content here")
+    /*     this.newfileeditor = CodeMirror.fromTextArea(document.getElementById('newfileditor'), {
+          lineNumbers: true
+        });
+        this.newfileeditor.setValue("add your content here") */
 
-    this.filesToSend = [];
+    this.filesToSend = []
 
     // This inits a IndexedDB database
-    this.fs = new FS("remix-workspace");
-    this.fsp = this.fs.promises;
+    this.fs = new FS('remix-workspace')
+    this.fsp = this.fs.promises
 
 
-    console.log("app started")
+    console.log('app started')
 
-    // REMIX CLIENT 
+    // REMIX CLIENT
     this.client = createClient(this)
     this.client.onload().then(async () => {
+      console.log('workspace client loaded', this)
+      // await this.getFilesFromIde()
+      // await this.addToIpfs()
 
-      console.log("workspace client loaded", this)
-      //await this.getFilesFromIde()
-      //await this.addToIpfs()
+      this.client.on('fileManager', 'fileSaved', async (e) => {
+        // Do something
+        console.log(e)
+        await this.addFileFromBrowser(e)
+      })
+
+      this.client.on('fileManager', 'currentFileChanged', async (e) => {
+        // Do something
+        console.log(e)
+      })
+
+      this.client.on('fileManager', 'fileRemoved', async (e) => {
+        // Do something
+        console.log(e)
+      })
+
+      this.client.on('fileManager', 'fileRenamed', async (e) => {
+        // Do something
+        console.log(e)
+      })
+
+      this.client.on('fileManager', 'fileAdded', async (e) => {
+        // Do something
+        console.log(e)
+        await this.addFileFromBrowser(e)
+      })
+
       await this.gitinit()
-    });
+    })
 
-    this.setClickHandlers();
+
+    this.setClickHandlers()
     // IPFS HOST
 
 
@@ -80,7 +108,7 @@ export class WorkSpacePlugin extends PluginClient {
       protocol: defaultProtocol
     })
 
-    this.showFiles();
+    //this.showFiles();
 
     return undefined
   }
@@ -138,87 +166,132 @@ export class WorkSpacePlugin extends PluginClient {
     })
   }
 
-  async showtoast(str=""){
-    $(".toast").css("top",window.scrollY);
-    $('.toast').toast('show')
+  async showtoast(str = "") {
     $('.toast-body').html(str)
+    $(".toast").css("top", window.scrollY+window.innerHeight/2)
+    $(".toast").css("right", window.innerWidth/2 - $(".toast").outerWidth()/2)
+    $('.toast').toast('show')
+    
   }
 
   async clearDb() {
-    var req = indexedDB.deleteDatabase("remix-workspace");
-    let me = this;
-    
+    var req = indexedDB.deleteDatabase("remix-workspace")
+    let me = this
+
     req.onsuccess = async function () {
-      this.showtoast("Deleted database successfully");
-      await me.log();
-      await me.showFiles();
+      me.showtoast("Deleted database successfully")
+      await me.log()
+      await me.showFiles()
     };
   }
 
   async gitinit() {
-    let fs = this.fs;
-    await git.init({
-      fs,
-      dir: "/"
-    })
-    //alert("git init done")
-    this.showtoast("GIT initialized");
+    let fs = this.fs
+    try {
+      await git.init({
+        fs,
+        dir: "/"
+      })
+      //alert("git init done")
+      this.showtoast("GIT initialized")
+      await this.showFiles()
+    } catch (e) {
+      this.showtoast("Could not init git!")
+    }
   }
 
-  async addFile() {
+  async addFileFromBrowser(file) {
+    let content = await this.client.call("fileManager", "readFile", file)
+    await this.addFile(file, content)
+  }
 
-    await this.fsp.writeFile(`/${$("#filename").val()}`, this.newfileeditor.getValue());
-    await this.showFiles();
-    this.showtoast("file added");
+  async addFile(file, content) {
+    console.log("add file ", file)
+    let directories = path.dirname(file)
+    await this.createDirectoriesFromString(directories)
+    await this.fsp.writeFile("/" + file, content)
+    await this.showFiles()
+  }
+
+  async createDirectoriesFromString(directories) {
+    var ignore = [".", "/.", ""]
+    console.log("directory", directories, ignore.indexOf(directories))
+    if (ignore.indexOf(directories) > -1) return false
+    directories = directories.split("/")
+    console.log("create directory", directories)
+    let me = this
+    for (let i = 0; i < directories.length; i++) {
+      console.log(directories[i])
+      let previouspath = ""
+      if (i > 0)
+        previouspath = "/" + directories.slice(0, i).join("/")
+      let finalPath = previouspath + "/" + directories[i]
+      console.log("creating ", finalPath)
+      try {
+        await this.fsp.mkdir(finalPath)
+      } catch (e) {
+        console.log(e)
+      }
+    }
+  }
+
+  async addFileFromEditor() {
+    await this.fsp.addFile(`${$("#filename").val()}`, this.newfileeditor.getValue())
+    await this.showFiles()
+    this.showtoast("file added")
   }
 
   async viewFile(args) {
-    let filename = $(args[0].currentTarget).data("file");
-    console.log($(args[0].currentTarget).data("file"));
-    let content = await this.fsp.readFile(filename, {
-      encoding: 'utf8'
-    })
-    $("#files").hide();
-    $("#diff-container").hide();
-    $("#editor-container").show();
-    this.fileeditor.setValue(content)
-    $("#editorfile").html(filename);
-    //$('#fileviewer').modal('show')
+    let filename = $(args[0].currentTarget).data("file")
+    console.log($(args[0].currentTarget).data("file"))
+    /*     let content = await this.fsp.readFile(filename, {
+          encoding: 'utf8'
+        }) */
+
+    //await this.remix.call('fileManager', 'setFile', , content)
+    await this.client.call('fileManager', 'switchFile', `${this.removeSlash(filename)}`)
+
+    /*     $("#files").hide();
+        $("#diff-container").hide();
+        $("#editor-container").show();
+        this.fileeditor.setValue(content)
+        $("#editorfile").html(filename);
+        //$('#fileviewer').modal('show') */
 
   }
 
   async saveFile() {
-    let filename = $("#editorfile").html();
+    let filename = $("#editorfile").html()
     let content = this.fileeditor.getValue()
     await this.fsp.writeFile(filename, content)
     await this.showFiles()
-    $("#editor-container").hide();
+    $("#editor-container").hide()
   }
 
   async addToGit(args) {
-    console.log($(args[0].currentTarget).data("file"));
-    let filename = $(args[0].currentTarget).data("file");
+    console.log("ADD TO GIT", $(args[0].currentTarget).data("file"))
+    let filename = $(args[0].currentTarget).data("file")
     let content = await this.fsp.readFile(filename, {
       encoding: 'utf8'
     })
-    let basename = path.basename(filename);
+    let basename = path.basename(filename)
     let directory = path.dirname(filename)
-    console.log(basename, directory)
-    let fs = this.fs;
-    await git.add({
+    console.log("will add", basename, directory)
+    let fs = this.fs
+    let added = await git.add({
       fs,
-      dir: directory,
-      filepath: basename
+      dir: "/",
+      filepath: this.removeSlash(filename)
     })
-    await this.showFiles();
-    this.showtoast("added");
+    await this.showFiles()
+    this.showtoast("added ", added)
   }
 
   async diffFile(args) {
-    $("#files").hide();
-    $("#diff-container").show();
+    $("#files").hide()
+    $("#diff-container").show()
     let fs = this.fs
-    let fullfilename = $(args[0].currentTarget).data("file");
+    let fullfilename = $(args[0].currentTarget).data("file")
     let filename = path.basename($(args[0].currentTarget).data("file"))
     let commitOid = await git.resolveRef({
       fs,
@@ -238,7 +311,7 @@ export class WorkSpacePlugin extends PluginClient {
     let original = await this.fsp.readFile(fullfilename, {
       encoding: 'utf8'
     })
-    let newcontent = Buffer.from(blob).toString('utf8');
+    let newcontent = Buffer.from(blob).toString('utf8')
     console.log(newcontent, original)
     let filediff = createPatch(filename, original, newcontent) //diffLines(original,newcontent)
 
@@ -251,45 +324,48 @@ export class WorkSpacePlugin extends PluginClient {
 
   async getDirectory(dir) {
 
-    let result = [];
-    let files = await this.fsp.readdir(`${dir}`);
+    let result = []
+    let files = await this.fsp.readdir(`${dir}`)
+    console.log("readdir", files)
     //await files.map(async (fi)=>{
     for (let i = 0; i < files.length; i++) {
-      let fi = files[i];
+      let fi = files[i]
       if (typeof fi != "undefined") {
-        console.log("looking into ", fi, dir);
+        console.log("looking into ", fi, dir)
+        if (dir == "/") dir = ""
         let type = await this.fsp.stat(`${dir}/${fi}`)
         if (type.type == "dir") {
-          console.log("is directory, so get ", `${dir}/${fi}`);
+          console.log("is directory, so get ", `${dir}/${fi}`)
           result = [...result, ...await this.getDirectory(`${dir}/${fi}`)]
         } else {
-          console.log("is file ", `${dir}/${fi}`);
-          result.push(`${dir}/${fi}`);
+          console.log("is file ", `${dir}/${fi}`)
+          result.push(`${dir}/${fi}`)
         }
       }
     }
 
     //})
-    return result;
+    return result
+  }
+
+  removeSlash(s) {
+    return s.replace(/^\/+/, '')
   }
 
   async clone() {
     await this.clearDb()
-    const cid = $("#ipfs").val();
-    console.log(cid);
+    const cid = $("#ipfs").val()
+    console.log(cid)
     //return true;
 
     for await (const file of this.ipfs.get(cid)) {
 
-      file.path = file.path.replace(cid, "");
+      file.path = file.path.replace(cid, "")
       console.log(file.path)
       if (!file.content) {
         //
-        if (file.path != "" && file.path != ".") {
-          console.log("create dir", file.path)
-          await this.fsp.mkdir(file.path)
-        }
-        continue;
+        await this.createDirectoriesFromString(file.path)
+        continue
       }
       console.log(file.content)
       const content = []
@@ -298,19 +374,20 @@ export class WorkSpacePlugin extends PluginClient {
       }
       console.log("create file", file.path)
       console.log(content[0])
-      await this.fsp.writeFile(file.path, content[0])
+      await this.fsp.writeFile(file.path, content[0] || new Uint8Array())
     }
 
-    await this.log();
+    await this.log()
   }
 
   async showFiles() {
-    $("#files").show();
-    $("#diff-container").hide();
-    let files = await this.getDirectory("/");
+    $("#files").show()
+    $("#diff-container").hide()
+    let files = await this.getDirectory("/")
+    console.log("files", files)
     files = files.filter((element, index, array) => {
       console.log(element)
-      return (element.indexOf(".git") == -1);
+      return (element.indexOf(".git") == -1)
     }).map((x) => {
       return {
         name: x,
@@ -347,13 +424,14 @@ export class WorkSpacePlugin extends PluginClient {
       }
     })
 
-    console.log(statusmatrix);
-    console.log(matrix)
+    //console.log(statusmatrix);
+    console.log("matrix", matrix)
+    console.log("files", files)
     matrix.map((m) => {
       files.map((f) => {
-        (f.filename == m.filename) ? f.status = m.status: false
+        (this.removeSlash(f.name) == this.removeSlash(m.filename)) ? f.status = m.status: false
         statusmatrix.map((sm) => {
-          console.log(sm, f, JSON.stringify(sm.status), JSON.stringify(f.status))
+          //console.log(sm, f, JSON.stringify(sm.status), JSON.stringify(f.status))
           if (JSON.stringify(sm.status) == JSON.stringify(f.status)) {
             f.status = sm.matrix
           }
@@ -362,66 +440,97 @@ export class WorkSpacePlugin extends PluginClient {
         return f
       })
     })
-
-
-
+    console.log("matrix", matrix)
     console.log("files", files)
 
 
     // render files
-    $("#files").empty();
-    var template = require('./files.html');
+    $("#files").empty()
+    var template = require('./files.html')
     var html = template({
       files: files
-    });
-    $("#files").html(html);
+    })
+    $("#files").html(html)
+
+    await this.log()
 
   }
 
   async getFilesFromIde() {
-    const files = await this.client.call('fileManager', 'readdir', 'browser');
+    const files = await this.client.call('fileManager', 'readdir', 'browser')
     console.log(files)
-    var filelist = [];
+    var filelist = []
     Object.keys(files).map(function (key, index) {
       filelist.push(key)
-    });
-    var template = require('./files.html');
+    })
+    var template = require('./files.html')
     var html = template({
       files: filelist
-    });
-    $("#fileList").html(html);
+    })
+    $("#fileList").html(html)
   }
 
   Decodeuint8arr(uint8array) {
-    return new TextDecoder("utf-8").decode(uint8array);
+    return new TextDecoder("utf-8").decode(uint8array)
   }
 
   async log() {
 
-    let fs = this.fs;
-    $("#status").empty();
-    console.log(fs);
+    let fs = this.fs
+    $("#status").empty()
+    //console.log(fs);
 
-    let commits = await git.log({
-      fs,
-      dir: '/',
-      depth: 5
-    })
+    try {
 
-    commits.map((x) => {
-      console.log(x)
-      x.date = new Date(x.commit.committer.timestamp).toString()
-      //$("#status").append(x.commit.message).append(x.oid).append("<br>");
-    })
+      let commits = await git.log({
+        fs,
+        dir: '/',
+        depth: 5
+      })
 
-    var template = require('./commits.html');
-    var html = template({
-      commits: commits
-    });
-    $("#status").html(html);
+      commits.map((x) => {
+        console.log(x)
+        x.date = new Date(x.commit.committer.timestamp).toString()
+        //$("#status").append(x.commit.message).append(x.oid).append("<br>");
+      })
 
+      var template = require('./commits.html')
+      var html = template({
+        commits: commits
+      })
+      $("#status").html(html)
+
+    } catch (e) {
+      console.log(e)
+      $("#status").html("Log is empty")
+    }
+
+    await this.currentBranch()
 
   }
+
+  async currentBranch() {
+    $("#branch").empty()
+    let fs = this.fs
+    try {
+      let branch = await git.currentBranch({
+        fs,
+        dir: '/',
+        fullname: false
+      })
+      $("#init-btn").hide()
+      $(".gitIsReady").show()
+      this.addInfo("branch",`Branch is: ${branch}`)
+      console.log("BRANCH", branch)
+    } catch (e) {
+      // this means git is not init
+      $("#init-btn").show()
+      $(".gitIsReady").hide()
+      this.addAlert("branch","Git is not initialized.")
+      this.showtoast("Git not initialized.")
+    }
+  }
+
 
   async commit() {
     let fs = this.fs
@@ -435,44 +544,62 @@ export class WorkSpacePlugin extends PluginClient {
       message: $("#message").val()
     })
     this.showtoast(`commited ${sha}`)
-    await this.log();
+    await this.log()
   }
 
   async addToIpfs() {
 
-    this.filesToSend = [];
-    let files = await this.getDirectory("/");
-    console.log("files to send", files, files.length);
+    this.filesToSend = []
+    let files = await this.getDirectory("/")
+    console.log("files to send", files, files.length)
     for (let i = 0; i < files.length; i++) {
-      let fi = files[i];
+      let fi = files[i]
       console.log("fetching ", fi)
       let ob = {
         path: fi,
         content: await this.fsp.readFile(fi)
-      };
-      this.filesToSend.push(ob);
+      }
+      this.filesToSend.push(ob)
 
     }
-    let i;
+    let i
     const addOptions = {
       wrapWithDirectory: true,
-    };
+    }
+    try {
 
-    this.ipfs.add(this.filesToSend, addOptions).then((x) => {
-      console.log(x.cid.string)
-      $("#CID").attr("href", `${ipfsurl}${x.cid.string}`);
-      $("#CID").html(x.cid.string);
-      this.cid = x.cid.string;
-    });
+      await this.ipfs.add(this.filesToSend, addOptions).then((x) => {
+        console.log(x.cid.string)
+        $("#CID").attr("href", `${ipfsurl}${x.cid.string}`)
+        $("#CID").html(`Your files are here: ${x.cid.string}`)
+        this.cid = x.cid.string
+      })
+      this.addSuccess("ipfsAlert",`You files were uploaded to IPFS ${this.cid}`)
+    } catch (e) {
+      this.addAlert("ipfsAlert","There was an error uploading to IPFS, please check your IPFS settings if applicable.")
+      this.showtoast("There was an error uploading to IPFS!")
+      console.log(e)
+    }
 
     return true
+  }
+
+  async addAlert(id,message){
+    $(`#${id}`).html(message).removeClass().addClass("alert").addClass("alert-danger").addClass("mt-2").show()
+  }
+
+  async addInfo(id,message){
+    $(`#${id}`).html(message).removeClass().addClass("alert").addClass("alert-info").addClass("mt-2").show()
+  }
+  async addSuccess(id,message){
+    $(`#${id}`).html(message).removeClass().addClass("alert").addClass("alert-success").addClass("mt-2").show()
   }
 
   // 3BOX connection
 
   async connect3Box() {
-    this.box = await Box.openBox(this.address, this.provider);
-    this.space = await this.box.openSpace("remix-workspace");
+    this.box = await Box.openBox(this.address, this.provider)
+    this.space = await this.box.openSpace("remix-workspace")
     console.log(this.space)
   }
 
@@ -485,9 +612,9 @@ export class WorkSpacePlugin extends PluginClient {
   async importFrom3Box() {
     let cid = await this.space.private.get("cid")
     console.log("cid", cid)
-    this.cid = cid;
-    $("#ipfs").val(this.cid);
-    await this.clone();
+    this.cid = cid
+    $("#ipfs").val(this.cid)
+    await this.clone()
   }
 
   // WEB3 modal functions
@@ -505,8 +632,8 @@ export class WorkSpacePlugin extends PluginClient {
 
       this.web3Modal.on('connect', async (provider) => {
         this.provider = provider
-        const [address] = await this.provider.enable();
-        this.address = getAddress(address);
+        const [address] = await this.provider.enable()
+        this.address = getAddress(address)
         console.log(this.address)
         /*         this.internalEvents.emit('accountsChanged', provider.accounts || [])
                 this.internalEvents.emit('chainChanged', provider.chainId)
@@ -526,7 +653,7 @@ export class WorkSpacePlugin extends PluginClient {
     if (!this.web3Modal) {
       this.web3Modal = new Web3Modal({
         providerOptions: this.getProviderOptions() // required
-      });
+      })
       await this.initModal()
     }
     if (!this.web3Modal.show) {
@@ -542,7 +669,7 @@ export class WorkSpacePlugin extends PluginClient {
           infuraId: '83d4d660ce3546299cbe048ed95b6fad'
         }
       }
-    };
-    return providerOptions;
+    }
+    return providerOptions
   };
 }
