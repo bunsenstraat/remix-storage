@@ -19,29 +19,30 @@
 
   <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light mb-3">
     <div class="navbar-brand">Git plugin for Remix</div>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+      aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
-  
+
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav mr-auto">
-        <li class="nav-item active">
-          <a class="nav-link" href="#" data-scroll="sectionFiles">Files</a>
+        <li class="nav-item">
+          <a class="nav-link" href="#sectionFiles">Files</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" data-scroll="sectionGit">Git</a>
+          <a class="nav-link" href="#sectionGit">Git</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" data-scroll="sectionConnections">Connections</a>
+          <a class="nav-link" href="#sectionConnections">Connections</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#sectionExport">Export</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" data-scroll="sectionImport">Import</a>
+          <a class="nav-link" href="#sectionImport">Import</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" data-scroll="sectionIPFS">IPFS Settings</a>
+          <a class="nav-link" href="#sectionIPFS">IPFS Settings</a>
         </li>
       </ul>
 
@@ -64,7 +65,7 @@
 
     <hr> -->
     <hr>
-    
+
     <div id="files"></div>
     <hr>
     <div id="diff-container">
@@ -95,18 +96,24 @@
     <div class="gitIsReady">
       <button class="btn w-25 btn-primary" id="status-btn">git log</button>
       <div id="status"></div>
+      <div id="checkoutMessage"></div>
       <hr>
       <div class="form-group">
         <label>Message</label><input class="form-control" type="text" id="message">
       </div>
       <button class="btn w-25 btn-primary" id="commit-btn">git commit</button>
       <hr>
+      <div id="branches"></div>
+      <hr>
     </div>
     <h4 id="sectionConnections">Connections</h4>
     <hr>
+    <div class="alert alert-info">Connect to your wallet first, then connect to 3Box using your wallet account.</div>
     <button class="btn w-25 btn-primary" id="wallet-btn">wallet connect</button>
+    <div id="ethAddress"></div>
     <hr>
-    <button class="btn w-25 btn-primary" id="3Box-btn">3Box connect</button> 
+    <button class="btn w-25 btn-primary 3boxbtn" disabled id="boxconnect">3Box connect</button>
+    <div id="3boxconnection"></div>
     <hr>
     <h4>Export</h4>
     <span class="anchor" id="sectionExport"></span>
@@ -116,9 +123,10 @@
     <div id="ipfsAlert" role="alert"></div>
     <a target="_blank" href="#" id="CID"></a>
     <hr>
-    <div class="alert alert-info" role="alert">This will export the files to IPFS and store a key in your 3Box account.</div>
-    <button class="btn w-25 btn-primary"
-      id="3BoxExport-btn">Export to 3Box</button>
+    <div class="alert alert-info" role="alert">This will export the files to IPFS and store a key in your 3Box account.
+    </div>
+    <button class="btn w-25 btn-primary 3boxbtn" disabled id="boxexport">Export to 3Box & IPFS</button>
+    <div id="boxexportstatus"></div>
     <hr>
     <h4 id="sectionImport">Import</h4>
     <hr>
@@ -128,9 +136,11 @@
     </div>
     <button class="btn w-25 btn-primary" id="clone-btn">import from IPFS</button>
     <hr>
-    <div class="alert alert-info" role="alert">This will import the IPFS repo from a key stored in your 3Box account.</div>
-    <button class="btn w-25 btn-primary" id="import3b-btn">import from 3Box</button>
+
+    
+    <div id="3boxhashes"></div>
     <hr>
+
 
   </div>
   <div class="container-fluid pb-3" id="settings">

@@ -1,0 +1,23 @@
+<hr>
+<h4>3Box storage</h4>
+<div class="alert alert-info" role="alert">This will import the IPFS repo from a key stored in your 3Box account.
+</div>
+<div class="container-fluid">
+    {{#commits}}
+    {{#cid}}
+    <div class="row p-1 small">
+        <div class="col">
+            IPFS: <a target="_blank" href="{{link}}">{{cid}}</a><br>
+            DATE: {{date}}<br>
+            MESSAGE: {{message}}<br>
+            COMMIT: {{ref}}<br>
+        </div>
+        <div class="col">
+            <button class="btn btn-primary btn-sm float-right import3b-btn" data-cid="{{cid}}">
+                import
+            </button>
+        </div>
+    </div>
+    {{/cid}}
+    {{/commits}}
+</div>

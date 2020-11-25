@@ -132,25 +132,23 @@ export class WorkSpacePlugin extends PluginClient {
       await this.clone()
     })
     $('#status-btn').click(async () => {
-      await this.log()
+      await this.gitlog()
     })
     $('#addfile-btn').click(async () => {
       await this.addFile()
     })
-    $('#savefile-btn').click(async () => {
-      await this.saveFile()
-    })
     $('#wallet-btn').click(async () => {
       await this.openModal()
     })
-    $('#3box-btn').click(async () => {
+    $(document).on('click', '#boxconnect', async () => {
       await this.connect3Box()
     })
-    $('#3boxExport-btn').click(async () => {
+    $(document).on('click', '#boxexport', async () => {
       await this.storeHashIn3Box()
     })
-    $('#import3b-btn').click(async () => {
-      await this.importFrom3Box()
+
+    $(document).on('click', '#createbranch-btn', async () => {
+      await this.createBranch()
     })
 
     $('.nav-link').click(async (...args) => {
@@ -159,6 +157,9 @@ export class WorkSpacePlugin extends PluginClient {
 
     $(document).on('click', '.viewfile', async (...args) => {
       await this.viewFile(args)
+    })
+    $(document).on('click', '.import3b-btn', async (...args) => {
+      await this.importFrom3Box(args)
     })
     $(document).on('click', '.checkout-btn', async (...args) => {
       await this.checkout(args)
@@ -195,16 +196,19 @@ export class WorkSpacePlugin extends PluginClient {
   // Git functions
 
   async gitinit() {
+    console.log("init")
     const fs = this.fs
     try {
       await git.init({
         fs,
         dir: '/'
       })
+      //await this.createBranch("master")
       // alert("git init done")
       this.showtoast('GIT initialized')
       await this.showFiles()
     } catch (e) {
+      console.log(e)
       this.showtoast('Could not init git!')
     }
   }
@@ -230,12 +234,17 @@ export class WorkSpacePlugin extends PluginClient {
     const oid = $(args[0].currentTarget).data('oid')
     console.log("checkout", oid)
     let fs = this.fs
-    await git.checkout({
-      fs,
-      dir: '/',
-      ref: oid
-    })
 
+    try {
+      await git.checkout({
+        fs,
+        dir: '/',
+        ref: oid
+      })
+    } catch (e) {
+      console.log(e)
+      this.addAlert("checkoutMessage", e)
+    }
     console.log('done')
     await this.showFiles();
   }
@@ -248,8 +257,9 @@ export class WorkSpacePlugin extends PluginClient {
 
     req.onsuccess = async function () {
       me.showtoast('Deleted database successfully')
-      await me.log()
-      await me.showFiles()
+      //await me.gitlog()
+      //await me.showFiles()
+      await me.gitinit()
     }
   }
 
@@ -293,14 +303,6 @@ export class WorkSpacePlugin extends PluginClient {
     await this.client.call('fileManager', 'switchFile', `${this.removeSlash(filename)}`)
   }
 
-  async saveFile() {
-    const filename = $('#editorfile').html()
-    const content = this.fileeditor.getValue()
-    await this.fsp.writeFile(filename, content)
-    await this.showFiles()
-    $('#editor-container').hide()
-  }
-
   async diffFile(args) {
     $('#files').hide()
     $('#diff-container').show()
@@ -310,7 +312,7 @@ export class WorkSpacePlugin extends PluginClient {
     const commitOid = await git.resolveRef({
       fs,
       dir: '/',
-      ref: 'master'
+      ref: 'HEAD'
     })
 
     try {
@@ -339,10 +341,10 @@ export class WorkSpacePlugin extends PluginClient {
   }
 
   async getDirectory(dir) {
-    console.log('get directory')
+    //console.log('get directory')
     let result = []
     const files = await this.fsp.readdir(`${dir}`)
-    console.log('readdir', files)
+    //console.log('readdir', files)
     // await files.map(async (fi)=>{
     for (let i = 0; i < files.length; i++) {
       const fi = files[i]
@@ -419,7 +421,7 @@ export class WorkSpacePlugin extends PluginClient {
         })
         f.parentId = parent ? parent.id : undefined
       } else {
-        console.log(f)
+        //console.log(f)
         const parent = ob.find((x) => {
           return (x.fullname === f.parentDir) && (x.type === 'dir')
         })
@@ -474,6 +476,7 @@ export class WorkSpacePlugin extends PluginClient {
     $('#files').show()
     $('#diff-container').hide()
     let files = await this.getDirectory('/')
+    console.log(files)
     let jsonfiles = await this.jsonObjectFromFileList(files)
     console.log('files', jsonfiles)
     const tree = require('./tree.html')
@@ -531,7 +534,18 @@ export class WorkSpacePlugin extends PluginClient {
       //console.log(m.matrix)
 
     })
-    await this.log()
+    try {
+      await this.gitlog()
+      
+    } catch (e) {
+
+    }
+    try {
+      await await this.getBranches()
+    }catch(e){
+      
+    }
+
     return true
   }
 
@@ -554,25 +568,38 @@ export class WorkSpacePlugin extends PluginClient {
     return new TextDecoder('utf-8').decode(uint8array)
   }
 
-  async log() {
-    const fs = this.fs
-    $('#status').empty()
-    // console.log(fs);
-
+  async getCommits() {
+    console.log("get commits")
     try {
+      let fs = this.fs
       const commits = await git.log({
         fs,
         dir: '/',
-        depth: 5
+        depth: 200
       })
 
       commits.map((x) => {
-        console.log(x)
+        //console.log(x)
         x.date = new Date(x.commit.committer.timestamp * 1000).toString()
         // x.date = x.commit.committer.timestamp
         return x
         // $("#status").append(x.commit.message).append(x.oid).append("<br>");
       })
+      console.log(commits)
+      return commits
+    } catch (e) {
+      throw (e)
+    }
+  }
+
+  async gitlog() {
+    console.log("log")
+    const fs = this.fs
+    $('#status').empty()
+    // console.log(fs);
+
+    try {
+      const commits = await this.getCommits()
 
       const template = require('./commits.html')
       const html = template.render({
@@ -584,7 +611,56 @@ export class WorkSpacePlugin extends PluginClient {
       $('#status').html('Log is empty')
     }
 
-    await this.currentBranch()
+    await this.showCurrentBranch()
+  }
+
+  async createBranch(name = false) {
+    const fs = this.fs
+    const branch = name || $("#newbranchname").val();
+    if (branch)
+      await git.branch({
+        fs,
+        dir: '/',
+        ref: branch
+      })
+    this.showFiles();
+  }
+
+  async showCurrentBranch() {
+    $('#init-btn').hide()
+    $('.gitIsReady').show()
+
+    try {
+      const branch = await this.currentBranch()
+      if (typeof branch === 'undefined') {
+        this.addAlert('branch', `You are in a detached state`)
+      } else {
+        const currentcommitoid = await this.getCommitFromRef(branch)
+        this.addSuccess('branch', `Branch is: ${branch} at commit ${currentcommitoid}`)
+      }
+      console.log('BRANCH', branch)
+    } catch (e) {
+      // this means git is not init
+      console.log(e)
+      //$('#init-btn').show()
+      //$('.gitIsReady').hide()
+      this.addInfo('branch', 'There is no active branch. Add and commit files.')
+      //await this.createBranch()
+      this.showtoast('No active branch')
+    }
+  }
+
+  async getLastCommmit() {
+    try {
+      let currentcommitoid = ""
+      const branch = await this.currentBranch()
+      if (typeof branch !== 'undefined') {
+        currentcommitoid = await this.getCommitFromRef(branch)
+        return currentcommitoid
+      }
+    } catch (e) {
+      return false
+    }
   }
 
   async currentBranch() {
@@ -596,20 +672,10 @@ export class WorkSpacePlugin extends PluginClient {
         dir: '/',
         fullname: false
       })
-      $('#init-btn').hide()
-      $('.gitIsReady').show()
-      if (typeof branch === 'undefined') {
-        this.addAlert('branch', `You are in a detached state`)
-      } else {
-        this.addInfo('branch', `Branch is: ${branch}`)
-      }
       console.log('BRANCH', branch)
+      return branch
     } catch (e) {
-      // this means git is not init
-      $('#init-btn').show()
-      $('.gitIsReady').hide()
-      this.addAlert('branch', 'Git is not initialized.')
-      this.showtoast('Git not initialized.')
+      throw (e)
     }
   }
 
@@ -626,11 +692,75 @@ export class WorkSpacePlugin extends PluginClient {
     })
     this.showtoast(`commited ${sha}`)
     await this.showFiles()
+
+  }
+
+  async getBranches() {
+    let fs = this.fs
+    let branches = await git.listBranches({
+      fs,
+      dir: '/'
+    })
+    let html = require('./branches.html')
+    console.log(branches)
+    $("#branches").html(html.render({
+      "branches": branches
+    }))
+  }
+
+  async getCommitFromRef(ref) {
+    let fs = this.fs
+    const commitOid = await git.resolveRef({
+      fs,
+      dir: '/',
+      ref: ref
+    })
+    return commitOid
+  }
+
+  async getFileContentCommit(fullfilename, commitOid) {
+    const fs = this.fs
+    let content = ""
+    try {
+      const {
+        blob
+      } = await git.readBlob({
+        fs,
+        dir: '/',
+        oid: commitOid,
+        filepath: this.removeSlash(fullfilename)
+      })
+      content = Buffer.from(blob).toString('utf8')
+
+    } catch (e) {
+      console.log(e)
+    }
+    return content
   }
 
   async addToIpfs() {
+
     this.filesToSend = []
-    const files = await this.getDirectory('/')
+    // first get files in current commit, not the files in the FS because they can be changed or unstaged
+    const fs = this.fs
+    let filescommited = await git.listFiles({
+      fs,
+      dir: '/',
+      ref: 'HEAD'
+    })
+    const currentcommitoid = await this.getCommitFromRef("HEAD")
+    for (let i = 0; i < filescommited.length; i++) {
+      const ob = {
+        path: filescommited[i],
+        content: await this.getFileContentCommit(filescommited[i], currentcommitoid)
+      }
+      this.filesToSend.push(ob)
+    }
+    console.log(this.filesToSend)
+    //return true;
+
+    // then we get the git objects folder
+    const files = await this.getDirectory('/.git')
     console.log('files to send', files, files.length)
     for (let i = 0; i < files.length; i++) {
       const fi = files[i]
@@ -665,19 +795,55 @@ export class WorkSpacePlugin extends PluginClient {
   // 3BOX connection
 
   async connect3Box() {
+    console.log("3box connect")
     this.box = await Box.openBox(this.address, this.provider)
     this.space = await this.box.openSpace('remix-workspace')
     console.log(this.space)
+    this.addSuccess("3boxconnection", `Your 3Box space is ${this.space._name}`);
+    const hashes = await this.getHashesFrom3Box()
+    await this.show3boxhashes(hashes)
   }
 
   async storeHashIn3Box() {
     console.log('export 3box', this.cid, this.space)
-    await this.space.private.set('cid', this.cid)
+    const commits = await this.getCommits()
+    await this.space.private.set(`remixhash-${Date.now()}`, {
+      "cid": this.cid,
+      "date": commits[0].date,
+      "ref": commits[0].oid,
+      "message": commits[0].commit.message
+    })
     this.showtoast('stored in 3box')
+    this.addSuccess('boxexportstatus', 'Your data was stored in 3Box')
+    const hashes = await this.getHashesFrom3Box()
+    await this.show3boxhashes(hashes)
   }
 
-  async importFrom3Box() {
-    const cid = await this.space.private.get('cid')
+  async show3boxhashes(hashes) {
+    console.log("render", hashes)
+    const template = require('./3box.html')
+    hashes.map((x) => {
+      try {
+        x.link = `${ipfsurl}${x.cid}`
+        return x
+      } catch (e) {
+        return false
+      }
+    })
+    const html = template.render({
+      commits: hashes
+    })
+    $('#3boxhashes').html(html)
+  }
+
+  async getHashesFrom3Box() {
+    const hashes = await this.space.private.all();
+    console.log(hashes)
+    return Object.values(hashes)
+  }
+
+  async importFrom3Box(args) {
+    const cid = $(args[0].currentTarget).data('cid')
     console.log('cid', cid)
     this.cid = cid
     $('#ipfs').val(this.cid)
@@ -701,6 +867,8 @@ export class WorkSpacePlugin extends PluginClient {
         this.provider = provider
         const [address] = await this.provider.enable()
         this.address = getAddress(address)
+        this.addSuccess("ethAddress", `Your eth address is ${this.address}`);
+        await this.set3boxbuttonsStatus(false)
         console.log(this.address)
         /*         this.internalEvents.emit('accountsChanged', provider.accounts || [])
                 this.internalEvents.emit('chainChanged', provider.chainId)
@@ -715,6 +883,10 @@ export class WorkSpacePlugin extends PluginClient {
     } catch (e) {
       console.log(e)
     }
+  }
+
+  async set3boxbuttonsStatus(status) {
+    $(".3boxbtn").prop('disabled', status)
   }
 
   async openModal() {

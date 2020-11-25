@@ -80,3 +80,7 @@ ul, #filetree {
     top: -250px;
     visibility: hidden;
 }
+
+.checkout-btn{
+  cursor: pointer;
+}

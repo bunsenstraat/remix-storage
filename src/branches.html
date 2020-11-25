@@ -1,0 +1,21 @@
+<h4>Branches</h4>
+{{#branches}}
+<div class="row p-1">
+    <div class="col-2">
+        {{.}}
+    </div>
+    <div class="col">
+        <span class="float-right">
+            <div class="badge badge-primary checkout-btn" data-oid="{{.}}">
+                checkout
+            </div>
+        </span>
+    </div>
+</div>
+{{/branches}}
+<hr>
+<h4>Create branch</h4>
+<div class="form-group">
+    <label>Branchname</label><input class="form-control" type="text" id="newbranchname">
+</div>
+<button class="btn w-25 btn-primary" id="createbranch-btn">git branch</button>
