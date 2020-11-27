@@ -58,7 +58,15 @@ export class WorkSpacePlugin extends PluginClient {
 
     // This inits a IndexedDB database
     this.fs = new FS('remix-workspace')
+
+    
+
+
     this.fsp = this.fs.promises
+
+    this.fsp.du("/").then().catch((e)=>{
+      this.addAlert("mainalert","Cannot access the browser database! This means you are either blocking third party cookies or using a browser which blocks access to it. The plugin will not work without it.")
+    });
 
     console.log('app started')
     this.showspinner();
