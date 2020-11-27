@@ -1,10 +1,15 @@
 <ul class="submenu">
     {{#children}}
     <li data-id='{{id}}' data-fullname='{{fullname}}' class="">
-            <span class="caret"></span>
-            {{name}}
-            <span class="buttons float-right"></span>
-            <span class="status float-right mr-3"></span>
+        {{#dir}}
+        <span class="far fa-folder"></span>
+        {{/dir}}
+        {{^dir}}
+        <span class="far fa-file"></span>
+        {{/dir}}
+        {{name}}
+        <span class="buttons float-right"></span>
+        <span class="status float-right mr-3"></span>
 
         {{>recurse}}
 

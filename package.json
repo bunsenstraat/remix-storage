@@ -33,6 +33,7 @@
   "dependencies": {
     "3box": "^1.22.2",
     "@ethersproject/address": "^5.0.5",
+    "@fortawesome/fontawesome-free": "^5.15.1",
     "@isomorphic-git/lightning-fs": "^4.3.0",
     "@remixproject/plugin-webview": "^0.3.2",
     "@types/3box": "^1.22.0",

@@ -36,6 +36,7 @@ const defaultHost = 'localhost' // ethdev berlin ipfs node
 const defaultPort = 5001
 const defaultProtocol = 'http'
 const ipfsurl = 'https://ipfs.io/ipfs/'
+
 export class WorkSpacePlugin extends PluginClient {
   constructor() {
     console.clear()
@@ -52,58 +53,31 @@ export class WorkSpacePlugin extends PluginClient {
         this.newfileeditor.setValue("add your content here") */
 
     this.filesToSend = []
+    this.callBackEnabled = false
+
 
     // This inits a IndexedDB database
     this.fs = new FS('remix-workspace')
     this.fsp = this.fs.promises
 
     console.log('app started')
-
+    this.showspinner();
     // REMIX CLIENT
     this.client = createClient(this)
     this.client.onload().then(async () => {
       console.log('workspace client loaded', this)
       // await this.getFilesFromIde()
       // await this.addToIpfs()
+      this.hidespinner();
+      $("#main").show();
+      await this.enableCallBacks()
 
-      this.client.on('fileManager', 'fileSaved', async (e) => {
-        // Do something
-        console.log(e)
-        await this.addFileFromBrowser(e)
-      })
-
-      this.client.on('fileManager', 'currentFileChanged', async (e) => {
-        // Do something
-        console.log(e)
-      })
-
-      this.client.on('fileManager', 'fileRemoved', async (e) => {
-        // Do something
-        console.log(e)
-      })
-
-      this.client.on('fileManager', 'fileRenamed', async (e) => {
-        // Do something
-        console.log(e)
-      })
-
-      this.client.on('fileManager', 'fileAdded', async (e) => {
-        // Do something
-        console.log(e)
-        await this.addFileFromBrowser(e)
-      })
 
       await this.gitinit()
     })
 
     this.setClickHandlers()
-    // IPFS HOST
 
-    this.ipfs = IpfsHttpClient({
-      host: defaultHost,
-      port: defaultPort,
-      protocol: defaultProtocol
-    })
 
     this.showFiles()
 
@@ -151,9 +125,6 @@ export class WorkSpacePlugin extends PluginClient {
       await this.createBranch()
     })
 
-    $('.nav-link').click(async (...args) => {
-      await this.navigateTo(args)
-    })
 
     $(document).on('click', '.viewfile', async (...args) => {
       await this.viewFile(args)
@@ -161,8 +132,18 @@ export class WorkSpacePlugin extends PluginClient {
     $(document).on('click', '.import3b-btn', async (...args) => {
       await this.importFrom3Box(args)
     })
+    $(document).on('click', '.delete3b-btn', async (...args) => {
+      await this.deleteFrom3Box(args)
+    })
+
     $(document).on('click', '.checkout-btn', async (...args) => {
       await this.checkout(args)
+    })
+    $(document).on('click', '.gitrm', async (...args) => {
+      await this.gitrm(args)
+    })
+    $(document).on('click', '.checkoutfile', async (...args) => {
+      await this.checkoutfile(args)
     })
     $(document).on('click', '.diff', async (...args) => {
       await this.diffFile(args)
@@ -174,6 +155,14 @@ export class WorkSpacePlugin extends PluginClient {
 
   // UI Elements
 
+  async showspinner() {
+    $("#spinner").modal('show');
+  }
+
+  async hidespinner() {
+    $("#spinner").modal('hide');
+  }
+
   async showtoast(str = '') {
     $('.toast-body').html(str)
     $('.toast').css('top', window.scrollY + window.innerHeight / 2)
@@ -181,16 +170,61 @@ export class WorkSpacePlugin extends PluginClient {
     $('.toast').toast('show')
   }
 
-  async addAlert(id, message) {
+  async addAlert(id, message, addToClearMessage = true, clearPreviousMessages = false) {
+    if (clearPreviousMessages) $(".clearmessage").hide();
     $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-danger').addClass('mt-2').show()
+    if (addToClearMessage) $(`#${id}`).addClass('clearmessage')
   }
 
-  async addInfo(id, message) {
+  async addInfo(id, message, addToClearMessage = false, clearPreviousMessages = false) {
+    if (clearPreviousMessages) $(".clearmessage").hide();
     $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-info').addClass('mt-2').show()
+    if (addToClearMessage) $(`#${id}`).addClass('clearmessage')
   }
 
-  async addSuccess(id, message) {
+  async addSuccess(id, message, addToClearMessage = false, clearPreviousMessages = false) {
+    if (clearPreviousMessages) $(".clearmessage").hide();
     $(`#${id}`).html(message).removeClass().addClass('alert').addClass('alert-success').addClass('mt-2').show()
+    if (addToClearMessage) $(`#${id}`).addClass('clearmessage')
+  }
+
+  // IDE
+
+  async enableCallBacks() {
+    this.client.on('fileManager', 'fileSaved', async (e) => {
+      // Do something
+      console.log(e)
+      await this.addFileFromBrowser(e)
+    })
+
+    this.client.on('fileManager', 'currentFileChanged', async (e) => {
+      // Do something
+      console.log(e)
+    })
+
+    this.client.on('fileManager', 'fileRemoved', async (e) => {
+      // Do something
+      console.log(e)
+      await this.rmFile(e)
+
+    })
+
+    this.client.on('fileManager', 'fileRenamed', async (e) => {
+      // Do something
+      console.log(e)
+      await this.rmFile(e)
+    })
+
+    this.client.on('fileManager', 'fileAdded', async (e) => {
+      // Do something
+      console.log(e)
+      await this.addFileFromBrowser(e)
+    })
+    this.callBackEnabled = true
+  }
+
+  async disableCallBacks() {
+    this.callBackEnabled = false
   }
 
   // Git functions
@@ -229,6 +263,38 @@ export class WorkSpacePlugin extends PluginClient {
     this.showtoast('added ', added)
   }
 
+  async gitrm(args) {
+    console.log('RM GIT', $(args[0].currentTarget).data('file'))
+    const filename = $(args[0].currentTarget).data('file')
+    const fs = this.fs
+    const added = await git.remove({
+      fs,
+      dir: '/',
+      filepath: this.removeSlash(filename)
+    })
+    await this.showFiles()
+    this.showtoast('added ', added)
+  }
+
+  async checkoutfile(args) {
+    const filename = $(args[0].currentTarget).data('file')
+    console.log("checkout", filename)
+    let fs = this.fs
+    try {
+      await git.checkout({
+        fs,
+        dir: '/',
+        ref: 'HEAD',
+        filepaths: [`/${filename}`]
+      })
+    } catch (e) {
+      console.log(e)
+      //this.addAlert("checkoutMessage", e)
+    }
+    console.log('done')
+    await this.syncToBrowser();
+  }
+
   async checkout(args) {
 
     const oid = $(args[0].currentTarget).data('oid')
@@ -246,7 +312,7 @@ export class WorkSpacePlugin extends PluginClient {
       this.addAlert("checkoutMessage", e)
     }
     console.log('done')
-    await this.showFiles();
+    await this.syncToBrowser();
   }
 
   // File functions
@@ -264,8 +330,44 @@ export class WorkSpacePlugin extends PluginClient {
   }
 
   async addFileFromBrowser(file) {
+    if (!this.callBackEnabled) return false
     const content = await this.client.call('fileManager', 'readFile', file)
     await this.addFile(file, content)
+  }
+
+  async syncToBrowser() {
+
+    this.showspinner();
+    await this.disableCallBacks();
+    let filesToSync = []
+    // first get files in current commit, not the files in the FS because they can be changed or unstaged
+    const fs = this.fs
+    let filescommited = await git.listFiles({
+      fs,
+      dir: '/',
+      ref: 'HEAD'
+    })
+    const currentcommitoid = await this.getCommitFromRef("HEAD")
+    for (let i = 0; i < filescommited.length; i++) {
+      const ob = {
+        path: filescommited[i],
+        content: await this.getFileContentCommit(filescommited[i], currentcommitoid)
+      }
+      console.log("sync file", ob)
+      try {
+        await this.client.call('fileManager', 'setFile', ob.path, ob.content)
+      } catch (e) {
+        console.log("could not load file", e)
+        this.hidespinner();
+      }
+      filesToSync.push(ob)
+    }
+    console.log("files to sync", filesToSync)
+
+    await this.showFiles();
+    await this.enableCallBacks();
+    this.addSuccess('ipfsimportalert', 'Import successfull', true, true)
+    this.hidespinner();
   }
 
   async addFile(file, content) {
@@ -273,6 +375,12 @@ export class WorkSpacePlugin extends PluginClient {
     const directories = path.dirname(file)
     await this.createDirectoriesFromString(directories)
     await this.fsp.writeFile('/' + file, content)
+    await this.showFiles()
+  }
+
+  async rmFile(file) {
+    console.log('rm file ', file)
+    await this.fsp.unlink('/' + file)
     await this.showFiles()
   }
 
@@ -292,7 +400,7 @@ export class WorkSpacePlugin extends PluginClient {
       try {
         await this.fsp.mkdir(finalPath)
       } catch (e) {
-        console.log(e)
+        // console.log(e)
       }
     }
   }
@@ -379,6 +487,8 @@ export class WorkSpacePlugin extends PluginClient {
           return x.fullname === dirname
         })) ob.push({
         type: 'dir',
+        dir: true,
+        file: false,
         name: directories.pop(),
         fullname: dirname,
         parentDir: path.dirname(dirname)
@@ -393,6 +503,8 @@ export class WorkSpacePlugin extends PluginClient {
             return x.fullname === finalPath
           })) ob.push({
           type: 'dir',
+          dir: true,
+          file: false,
           name: directories[i],
           fullname: finalPath,
           parentDir: path.dirname(finalPath)
@@ -402,6 +514,8 @@ export class WorkSpacePlugin extends PluginClient {
           return x.fullname === files[i]
         })) ob.push({
         type: 'file',
+        file: true,
+        dir: false,
         name: basename,
         fullname: files[i],
         directory: dirname,
@@ -414,62 +528,102 @@ export class WorkSpacePlugin extends PluginClient {
     })
     // find parents
     ob.map((f, i) => {
+      f.parentId = null
+      f.children = null
       if (f.type === 'file') {
         // f.parent
+
         const parent = ob.find((x) => {
           return (x.fullname === f.directory) && (x.type === 'dir')
         })
-        f.parentId = parent ? parent.id : undefined
+        f.parentId = parent ? parent.id : null
       } else {
         //console.log(f)
         const parent = ob.find((x) => {
           return (x.fullname === f.parentDir) && (x.type === 'dir')
         })
-        f.parentId = parent ? parent.id : undefined
+        f.parentId = parent ? parent.id : null
       }
     })
-    // build the tree
-    const t = {}
-    ob.forEach(o => {
-      Object.assign(t[o.id] = t[o.id] || {}, o)
-      t[o.id].children = null
-      t[o.parentId] = t[o.parentId] || {}
-      t[o.parentId].children = t[o.parentId].children || []
-      t[o.parentId].children.push(t[o.id])
-    })
-    console.log(t[0])
+    console.log("build tree from", ob.sort(this.sortbydirectorylevel))
+    // first we need it sorted
+    const nest = (items, id = null, link = 'parentId') =>
+      items
+      .filter(item => item[link] === id)
+      .map(item => ({
+        ...item,
+        children: nest(items, item.id)
+      }));
+
+    console.log("build tree from", ob)
+
+    let t = nest(ob)
 
     // console.log('OB', ob)
-    return t[0]
+    return {
+      children: t
+    }
   }
+
+
+
+  sortbydirectorylevel(a, b) {
+    //console.log(a,b);
+    if (a.fullname.split("/").length < b.fullname.split("/").length) {
+      return -1
+    }
+    if (a.fullname.split("/").length > b.fullname.split("/").length) {
+      return 1
+    }
+    return 0;
+  };
 
   removeSlash(s) {
     return s.replace(/^\/+/, '')
   }
 
   async clone() {
-    await this.clearDb()
+
     const cid = $('#ipfs').val()
     console.log(cid)
-    // return true;
-
-    for await (const file of this.ipfs.get(cid)) {
-      file.path = file.path.replace(cid, '')
-      console.log(file.path)
-      if (!file.content) {
-        //
-        await this.createDirectoriesFromString(file.path)
-        continue
-      }
-      console.log(file.content)
-      const content = []
-      for await (const chunk of file.content) {
-        content.push(chunk)
-      }
-      await this.fsp.writeFile(file.path, content[0] || new Uint8Array())
+    if (cid == "" || typeof cid == "undefined" || !cid) {
+      return false
     }
-
-    await this.showFiles()
+    // return true;
+    await this.clearDb()
+    console.log("cloning")
+    let connected = await this.setipfsHost()
+    if (!connected) return false
+    // try{
+    //   for await (const file of this.ipfs.get(cid)) {
+    //   }
+    //   console.log("cid ok")
+    // }catch(e){
+    //   console.log(e)
+    //   this.addAlert('ipfsimportalert', 'This IPFS cid is probably not correct....', true, true)
+    //   return false
+    // }
+    try {
+      for await (const file of this.ipfs.get(cid)) {
+        file.path = file.path.replace(cid, '')
+        console.log(file.path)
+        if (!file.content) {
+          //
+          console.log("CREATE DIR", file.path)
+          await this.createDirectoriesFromString(file.path)
+          continue
+        }
+        console.log("CREATE FILE", file.path)
+        const content = []
+        for await (const chunk of file.content) {
+          content.push(chunk)
+        }
+        await this.fsp.writeFile(file.path, content[0] || new Uint8Array())
+      }
+      await this.syncToBrowser()
+    } catch (e) {
+      this.addAlert('ipfsimportalert', 'This IPFS cid is probably not correct....', true, true)
+    }
   }
 
   async showFiles() {
@@ -536,14 +690,14 @@ export class WorkSpacePlugin extends PluginClient {
     })
     try {
       await this.gitlog()
-      
+
     } catch (e) {
 
     }
     try {
       await await this.getBranches()
-    }catch(e){
-      
+    } catch (e) {
+
     }
 
     return true
@@ -641,12 +795,12 @@ export class WorkSpacePlugin extends PluginClient {
       console.log('BRANCH', branch)
     } catch (e) {
       // this means git is not init
-      console.log(e)
+      //console.log(e)
       //$('#init-btn').show()
       //$('.gitIsReady').hide()
       this.addInfo('branch', 'There is no active branch. Add and commit files.')
       //await this.createBranch()
-      this.showtoast('No active branch')
+      //this.showtoast('No active branch')
     }
   }
 
@@ -738,16 +892,46 @@ export class WorkSpacePlugin extends PluginClient {
     return content
   }
 
-  async addToIpfs() {
+  async getipfsurl(){
+    return  $("#IPFS-url").val() != "" ? $("#IPFS-url").val() : false || ipfsurl
+  }
 
+  async setipfsHost() {
+    this.ipfs = IpfsHttpClient({
+      host: $("#IPFS-host").val() != "" ? $("#IPFS-host").val() : false || defaultHost,
+      port: $("#IPFS-host").val() != "" ? $("#IPFS-port").val() : false || defaultPort,
+      protocol: $("#IPFS-protocol").val() != "" ? $("#IPFS-protocol").val() : false || defaultProtocol
+    })
+    try {
+      await this.ipfs.config.getAll();
+
+      return true
+    } catch (e) {
+      console.log("IPFS error", e);
+      this.addAlert('ipfsAlert', 'There was an error connecting to IPFS, please check your IPFS settings if applicable.', true, false)
+      this.addAlert('ipfsimportalert', 'There was an error connecting to IPFS, please check your IPFS settings if applicable.', true, false)
+      this.hidespinner()
+      return false
+    }
+  }
+
+  async addToIpfs() {
+    this.showspinner();
     this.filesToSend = []
     // first get files in current commit, not the files in the FS because they can be changed or unstaged
     const fs = this.fs
-    let filescommited = await git.listFiles({
-      fs,
-      dir: '/',
-      ref: 'HEAD'
-    })
+    let filescommited
+    try {
+      filescommited = await git.listFiles({
+        fs,
+        dir: '/',
+        ref: 'HEAD'
+      })
+    } catch (e) {
+      this.addAlert('ipfsAlert', 'No files commited', true, true)
+      this.hidespinner()
+      return false
+    }
     const currentcommitoid = await this.getCommitFromRef("HEAD")
     for (let i = 0; i < filescommited.length; i++) {
       const ob = {
@@ -772,20 +956,25 @@ export class WorkSpacePlugin extends PluginClient {
       this.filesToSend.push(ob)
     }
 
+    let connected = await this.setipfsHost()
+    if (!connected) return false
+
     const addOptions = {
       wrapWithDirectory: true
     }
     try {
       await this.ipfs.add(this.filesToSend, addOptions).then((x) => {
         console.log(x.cid.string)
-        $('#CID').attr('href', `${ipfsurl}${x.cid.string}`)
-        $('#CID').html(`Your files are here: ${x.cid.string}`)
+        /* $('#CID').attr('href', `${ipfsurl}${x.cid.string}`)
+        $('#CID').html(`Your files are here: ${x.cid.string}`) */
         this.cid = x.cid.string
       })
-      this.addSuccess('ipfsAlert', `You files were uploaded to IPFS ${this.cid}`)
+      this.addSuccess('ipfsAlert', `You files were uploaded to IPFS: <a target=_blank href="${await this.getipfsurl()}${this.cid}">${this.cid}</a>`, true, true)
+      this.hidespinner()
     } catch (e) {
-      this.addAlert('ipfsAlert', 'There was an error uploading to IPFS, please check your IPFS settings if applicable.')
+      this.addAlert('ipfsAlert', 'There was an error uploading to IPFS, please check your IPFS settings if applicable.', true, true)
       this.showtoast('There was an error uploading to IPFS!')
+      this.hidespinner()
       console.log(e)
     }
 
@@ -796,20 +985,36 @@ export class WorkSpacePlugin extends PluginClient {
 
   async connect3Box() {
     console.log("3box connect")
-    this.box = await Box.openBox(this.address, this.provider)
-    this.space = await this.box.openSpace('remix-workspace')
-    console.log(this.space)
-    this.addSuccess("3boxconnection", `Your 3Box space is ${this.space._name}`);
-    const hashes = await this.getHashesFrom3Box()
-    await this.show3boxhashes(hashes)
+    this.showspinner();
+    try {
+      this.box = await Box.openBox(this.address, this.provider)
+      this.space = await this.box.openSpace('remix-workspace')
+      console.log(this.space)
+      this.addSuccess("3boxconnection", `Your 3Box space is ${this.space._name}`);
+      const hashes = await this.getHashesFrom3Box()
+      await this.show3boxhashes(hashes)
+    } catch (e) {
+      this.addAlert("3boxconnection", `Can't connect to 3Box. Make sure the IDE runs on HTTPS.`, true, true);
+    }
+    this.hidespinner();
   }
 
   async storeHashIn3Box() {
+
+    if (typeof this.space == "undefined") {
+      await this.addAlert('boxexportstatus', "You should connect to 3Box first");
+      return false;
+    }
+    this.showspinner()
+    await this.addToIpfs()
     console.log('export 3box', this.cid, this.space)
     const commits = await this.getCommits()
-    await this.space.private.set(`remixhash-${Date.now()}`, {
+    let key = `remixhash-${Date.now()}`
+    await this.space.private.set(key, {
+      "key": key,
       "cid": this.cid,
-      "date": commits[0].date,
+      "datestored": new Date(Date.now()),
+      "datecommit": commits[0].date,
       "ref": commits[0].oid,
       "message": commits[0].commit.message
     })
@@ -817,12 +1022,14 @@ export class WorkSpacePlugin extends PluginClient {
     this.addSuccess('boxexportstatus', 'Your data was stored in 3Box')
     const hashes = await this.getHashesFrom3Box()
     await this.show3boxhashes(hashes)
+    this.hidespinner()
   }
 
   async show3boxhashes(hashes) {
     console.log("render", hashes)
     const template = require('./3box.html')
-    hashes.map((x) => {
+    let ipfsurl = await this.getipfsurl()
+    hashes.map(async (x) => {
       try {
         x.link = `${ipfsurl}${x.cid}`
         return x
@@ -830,6 +1037,8 @@ export class WorkSpacePlugin extends PluginClient {
         return false
       }
     })
+
+    hashes = hashes.reverse();
     const html = template.render({
       commits: hashes
     })
@@ -848,6 +1057,16 @@ export class WorkSpacePlugin extends PluginClient {
     this.cid = cid
     $('#ipfs').val(this.cid)
     await this.clone()
+  }
+
+  async deleteFrom3Box(args) {
+    const key = $(args[0].currentTarget).data('key')
+    console.log('key', key)
+    this.showspinner()
+    await this.space.private.remove(key)
+    const hashes = await this.getHashesFrom3Box()
+    await this.show3boxhashes(hashes)
+    this.hidespinner()
   }
 
   // WEB3 modal functions
